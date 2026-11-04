@@ -2,18 +2,20 @@
 
 Scores Football Manager players on weighted attributes and tracks them over game time.
 FM has no data export, so the user takes screenshots of in-game player tables and an agent
-transcribes them to CSV. `score.py` turns those into nine pages per save:
+transcribes them to CSV. `score.py` turns those into ten pages per save (keys 1–9, then 0):
 
 1. **squad**: the club the user manages
-2. **elsewhere**: every other player they've looked at
-3. **last**: just the players from the most recent set of screenshots (e.g. one transfer search)
-4. **filters**: per position, the squad's best players and suggested minimums for FM's player search
-5. **charts**: players with a match rating (a league-wide search) by position: role scores, score vs wage,
-   score vs average rating, and Acceleration/Pace vs both, with the squad overlaid
-6. **staff**: every staff member observed, scored for each role (manager, coach groups, scout, physio…)
-7. **last_staff**: just the staff from the most recent set of staff screenshots
-8. **staff_filters**: per staff role, the club's best staff and suggested minimums (as FM's words) for FM's staff search
-9. **settings**: what's in `config.toml` and the save's `save.toml`
+2. **grid**: the squad by formation slot (save.toml's `grid`): starter, backup, then third (to sell or loan out) by position score, then the
+   youth (`youth_age` and under) by vs Age, so the pipeline and who's blocking the next intake show at a glance
+3. **elsewhere**: every other player they've looked at
+4. **last**: just the players from the most recent set of screenshots (e.g. one transfer search)
+5. **filters**: per position, the squad's best players and suggested minimums for FM's player search
+6. **charts**: players with a match rating (a league-wide search) by position: role scores, score vs wage,
+   score vs average rating, and Acceleration, Pace, Jumping Reach or Agility (a toggle; Agility is keepers only) by position and vs rating, with the squad overlaid
+7. **staff**: every staff member observed, scored for each role (manager, coach groups, scout, physio…)
+8. **last_staff**: just the staff from the most recent set of staff screenshots
+9. **staff_filters**: per staff role, the club's best staff and suggested minimums (as FM's words) for FM's staff search
+0. **settings**: what's in `config.toml` and the save's `save.toml`
 
 Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on Windows it may be `python` or `py`).
 
@@ -22,15 +24,15 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 | Path | Purpose |
 |---|---|
 | `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`. Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
-| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 5's default), `last_batch` (obs files for page 3), `last_staff_batch` (staff files for page 7), `last_staff_names` (staff already observed to add to page 7). |
+| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_exclude` (left off the grid) and `released` (players gone since the latest squad screen). |
 | `saves/<save>/obs/*.csv` | Observations: `<YYYY-MM-DD>_<source>_<view>.csv`, one per screenshot set. Append-only. |
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
 | `weights/<name>.toml` | Position weights (`[outfield.*]`, `[gk]`), age benchmarks, and staff scoring: `[staff_words]` (FM's words → numbers) and `[staff.<role>]` (the role's column label, then attribute weights). |
 | `weights/<name>_staff.md` | Notes on the staff weights: sources, FM27 key attributes, calibration. |
 | `views/`, `player search filters/`, `staff search filters/` | FM27 views and search filters (`.fmf`), named like FM's own folders. |
 | `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup) and `screenshots` (list new ones). Stdlib only. |
-| `template.html` | Pages 1–4, 6–9. Its `?` overlay is the reference for keys and filter syntax. |
-| `charts.html` | Page 5: hand-drawn SVG charts. |
+| `template.html` | Every page but charts. Its `?` overlay is the reference for keys and filter syntax. |
+| `charts.html` | Page 6: hand-drawn SVG charts. |
 | `theme.css` | Omarchy / Tokyo Night theme, inlined into every page. |
 | `out/` | Generated; gitignored. |
 | `README.md` | For people: what this is and how to set up a new save. |
@@ -57,7 +59,7 @@ The user says something like "new screenshots".
    `search-<what>` (`search-cb`). Copy the header from an existing file of the same view.
    - Columns: `Name`, `Club`, `Age`, `Left Foot`, `Wage`, `Transfer Value`, `Loan`, then attributes as integers.
      If the view shows `Minutes`, `Rating` (average rating) and `Division`, add them after `Loan`, division in full
-     (`Sky Bet League One`); they feed page 5. One file per division: `search-league-one`, `search-championship`.
+     (`Sky Bet League One`); they feed page 6. One file per division: `search-league-one`, `search-championship`.
      Copy `Minutes` exactly as shown, even when it breaks FM's sort order. Ignore `Height`.
    - An attribute you can't read (covered by something): leave it empty; the previous value carries forward.
    - A `gk` file holds only goalkeepers (everyone in one is scored as a keeper). If FM's GK view lists outfielders too, skip them.
@@ -73,7 +75,7 @@ The user says something like "new screenshots".
    - Spot-check rows against the image; misreads are the main risk.
 5. Set `last_batch` in `save.toml` to the file(s) from this update, and remove any `last_names`.
    If the screenshot is just a list of names of players already observed (e.g. a shortlist), set
-   `last_names = [...]` instead (names exactly as in the obs files): page 3 then shows only them.
+   `last_names = [...]` instead (names exactly as in the obs files): page 4 then shows only them.
 6. Run `python3 score.py --open last` and commit: `git add saves && git commit -m "<save>: <what> <date>"`.
 7. Report notable players: top of the new batch, big changes since a player's previous observation.
 
@@ -93,7 +95,7 @@ attributes. Same steps as players (date, crest check, `score.py screenshots`), b
 - Set `last_staff_batch` in `save.toml` and remove any `last_staff_names` (the user's "add X to last staff": names exactly as in the staff files), run `python3 score.py --open last_staff`, commit.
 - Scoring: words → range midpoints (`[staff_words]`: Good = 13, Average = 10.5…), role score = Σ(value × weight) / Σ(weights).
   Each `[staff.<label>]` table in the weights file is a role: the label is its column, and `[staff_names]` gives its
-  full name (shown on page 8). A new role needs both.
+  full name (shown on page 9). A new role needs both.
 
 ## Starting a new save
 
@@ -116,7 +118,7 @@ words, one step at a time, no jargon, and do the typing for them. `README.md` is
    and `%LOCALAPPDATA%\Sports Interactive` for the `Football Manager 27` folder that contains `views`;
    if you can't find it, ask. Copy `views/`, `player search filters/` and `staff search filters/` into the folders of the same
    names there, creating any that are missing. Never overwrite a file of the same name without asking. Then tell them the
-   columns README's step 5 lists for the views that aren't included (whole league, staff).
+   columns README's step 5 lists for the views that aren't included (whole league).
    The attributes come from the weights file, so if it's not `fm27`, list that file's instead (and the views may need editing).
 4. **First screenshots:** their squad screen with the outfield view, scrolling to cover everyone, then the GK view, with FM's
    date and their crest in shot. When they say "new screenshots", follow "Adding screenshots" below.
@@ -137,13 +139,24 @@ If FM renames an attribute, use the new name in the CSV header and in the weight
   observation. Enter/double-click a player for their history by date.
 - **Left** = yes for Fairly Strong or better (`LEFT_FOOTED` in `score.py`).
 - **Left the club:** a managed-club player missing from the latest squad screen (non-`search-` file) moves to
-  elsewhere as `left <club>`.
+  elsewhere as `left <club>`. The user saying a player's gone ("sold X", "released X") before the next squad screen: add them
+  to `released = [...]` in save.toml (name as in the obs files); don't edit obs files.
 - **Loan** flags show next to names, from the latest observation that has a `Loan` column. Filter with `loan-in` / `loan-out` / `trial`.
 - **Rating / minutes / division:** from the latest observation only (they're per season); rating and minutes show on elsewhere and last.
 - **Charts page:** players rated in their latest observation, grouped by best role (or everyone at every role).
   Dropdowns pick the division (the baseline, blue) and a club to highlight (orange): the managed club's squad
   screen, or any club in that division. Defaults: save.toml's `division` and `managed_club`.
   r = correlation over the league players; the dashed line is their least-squares fit (on log wage for wage).
+- **Grid page:** players are placed best first (by Score), each at their best position in the formation: its first
+  free Starter, else Backup, else Third. Third holds any number, spread over that position's slots: players to sell or
+  loan out. A left-footer prefers the left-footed slot. Senior = older than `youth_age`, by position score, with vs Age
+  for those `GRID_PCT_AGE` (24) and under; youth by that position's score ÷ age benchmark. Out-on-loan players aren't placed.
+  The latest youth intake (players in the newest obs files whose source contains `intake`, e.g. `search-youth-intake`)
+  gets its own Intake columns, placed like the youth, until a squad screen shows them (then they're youth, or gone). With no intake, those columns are hidden.
+  `grid_pins` in save.toml (`"Full Name" = "slot label"`) overrides a player's slot: the user's own calls on who plays where. `{ slot = "M C", col = "third" }` also fixes the column
+  (starter / backup / third); those players are placed first. `{ col = "third" }` alone: their best position. A pinned player out
+  on loan is placed too. `grid_exclude` leaves players off the grid altogether (e.g. contracts running out). Everyone still goes in by score, but unpinned
+  players avoid (at the same depth) slots a pinned player is still to fill.
 - **Filters page:** the squad's top 3 per position (top 1 for GK). **Search ≥** = their rounded average
   for attributes weighted ≥ 2 (`SEARCH_MIN_WEIGHT`), for use as minimums in FM's search.
 - **Staff filters page:** the same per staff role: the top 3 of the managed club's staff (at the club in its latest staff

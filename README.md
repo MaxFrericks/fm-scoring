@@ -168,19 +168,56 @@ Press the number keys to move between pages, and **?** on any page for its keybo
 | Key | Page | What's on it |
 |---|---|---|
 | 1 | Your squad | Every player at your club, scored for each position |
-| 2 | Elsewhere | Every other player you've screenshotted |
-| 3 | Last | Just the players from your latest screenshots |
-| 4 | Filters | Your best players per position, and minimum attributes to search FM for players better than them |
-| 5 | Charts | Your squad against a whole league: scores, wages, ratings and pace |
-| 6 | Staff | Every staff member you've screenshotted, scored for each job |
-| 7 | Last staff | Just the staff from your latest staff screenshots |
-| 8 | Staff filters | Your best staff per job, and minimum attributes to search FM for staff better than them |
-| 9 | Settings | Your club, division and other settings |
+| 2 | Grid | Your formation: starter, backup and third for each slot, then your best youngsters for it |
+| 3 | Elsewhere | Every other player you've screenshotted |
+| 4 | Last | Just the players from your latest screenshots |
+| 5 | Filters | Your best players per position, and minimum attributes to search FM for players better than them |
+| 6 | Charts | Your squad against a whole league: scores, wages, ratings and pace |
+| 7 | Staff | Every staff member you've screenshotted, scored for each job |
+| 8 | Last staff | Just the staff from your latest staff screenshots |
+| 9 | Staff filters | Your best staff per job, and minimum attributes to search FM for staff better than them |
+| 0 | Settings | Your club, division and other settings |
 
 Click a column heading to sort by it, and double-click a player to see their history. Type in the box at the top
 to filter: for example, `age<=21 best=CB` shows centre-backs aged 21 and under.
 
 To open the pages yourself, ask your assistant to "open my squad page".
+
+### Your formation (the grid page)
+
+The grid page lays your squad out by formation slot: a starter, a backup, and a third column for players you
+could sell or loan out, then the same for your youngsters (18 and under, ranked by how they're doing for their age).
+A new youth intake gets its own columns until it shows up on your squad screen. Click a name to see that player's history.
+
+Tell your assistant your formation, for example "my formation is a back four with a left-footed left centre-back,
+two holding midfielders, three behind a striker", and it sets the slots up. Then tell it your own calls in plain
+words, and the grid follows them:
+
+- "Play Smith at right wing" or "Jones is my backup keeper"
+- "Put Brown in third": a player you'd let go
+- "Leave Green off the grid": still at the club but not in your plans, e.g. their contract is running out
+- "I've sold White": they move off your squad before your next squad screenshot
+
+Behind the scenes it's a list in your save's `save.toml`, one line per slot: the slot's name and which position
+scores it. For example:
+
+```toml
+grid = [
+  { label = "GK", pos = "GK" },
+  { label = "D R", pos = "WB/6" },
+  { label = "D C", pos = "CB" },
+  { label = "D C left", pos = "CB", left = true },
+  { label = "D L", pos = "WB/6", left = true },
+  { label = "DM", pos = "WB/6" },
+  { label = "DM", pos = "WB/6" },
+  { label = "AM R", pos = "10" },
+  { label = "AM C", pos = "10" },
+  { label = "AM L", pos = "10" },
+  { label = "ST", pos = "9" },
+]
+```
+
+`left = true` means only left-footed players go there. Without a `grid`, the page has one row per position.
 
 ### Coming back later
 
