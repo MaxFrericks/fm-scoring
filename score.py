@@ -23,12 +23,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 CONFIG = ROOT / "config.toml"
-PAGES = ["squad", "elsewhere", "last", "filters", "charts", "staff", "last_staff", "staff_filters", "settings"]  # keys 1-9, in this order
+PAGES = ["squad", "grid", "elsewhere", "last", "filters", "charts", "staff", "last_staff", "staff_filters", "settings"]  # keys 1-9 then 0, in this order
 META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division"}  # every other column is an attribute
 STAFF_META = {"Name", "Club", "Age", "Job", "Personality"}
 LEFT_FOOTED = {"Fairly Strong", "Strong", "Very Strong"}
 SEARCH_MIN_WEIGHT = 2  # attributes weighted below this are left out of the filters page's search minimums
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+GRID_PCT_AGE = 24  # the grid page shows vs Age next to the score for senior players this age and under
 
 
 
@@ -167,6 +168,76 @@ def charts(rows, squad, w, cfg):
             "managed": cfg["managed_club"], "division": cfg.get("division")}
 
 
+def grid(squad, w, cfg, intake):
+    """The squad by formation slot (save.toml's `grid`): senior players by position score, then youth
+    (age <= youth_age) by that position's score against their age benchmark. Players are placed best first, each at
+    their best position: its first free Starter, else Backup, else Third, which takes any number (players to sell or
+    loan out), shared across that position's slots. A left-footer prefers a left-footed slot. Out on loan isn't placed.
+    save.toml's `grid_pins` (name = slot label, or { slot = label, col = "starter" | "backup" | "third" }, either
+    part optional; pinning places a player out on loan too) puts a
+    player in that slot instead, whatever their foot; other players steer clear of slots a pinned player is still to
+    fill. Players pinned to a column go first, into that column.
+    The latest youth intake (`intake`: names) gets its own columns, placed like the youth."""
+    slots = cfg.get("grid") or [{"label": p, "pos": p} for p in ["GK", *w["outfield"]]]
+    columns = ["starter", "backup", "third"]
+    pins = {n: v if isinstance(v, dict) else {"slot": v} for n, v in cfg.get("grid_pins", {}).items()}
+    pin_col = {n: columns.index(v["col"]) for n, v in pins.items() if v.get("col") in columns}
+    pinned_any = set(pins)  # pinned to a slot, a column, or both (a column alone: their best position)
+    pins = {n: v["slot"] for n, v in pins.items() if v.get("slot")}
+    check_listed({"grid_pins": list(pins)}, "grid_pins", {r["name"] for r in squad}, "names players not in the squad")
+    if bad := set(pins.values()) - {s["label"] for s in slots}:
+        raise SystemExit(f"save.toml grid_pins names slots not in grid: {sorted(bad)}")
+    youth_age = cfg.get("youth_age", 18)
+    promoted = set(cfg.get("grid_senior", []))  # youngsters the user has moved up to the senior squad
+    check_listed(cfg, "grid_senior", {r["name"] for r in squad}, "names players not in the squad")
+    excluded = set(cfg.get("grid_exclude", []))  # still at the club but not in the plans (e.g. contract running out)
+    check_listed(cfg, "grid_exclude", {r["name"] for r in squad}, "names players not in the squad")
+    squad = [r for r in squad if r["name"] not in excluded]
+    here = [r for r in squad if r["loan"] != "out" or r["name"] in pinned_any]  # out on loan: only if pinned
+
+    def allocate(players, value, pct):
+        cols, spare = [[[] for _ in slots] for _ in range(3)], []  # Starter, Backup, Third: lists of players per slot
+        waiting = {}  # slot -> pinned players not yet placed: others steer clear of those slots at the same depth
+        for r in players:
+            for i, s in enumerate(slots):
+                waiting[i] = waiting.get(i, 0) + (pins.get(r["name"]) == s["label"])
+        for r in sorted(players, key=lambda r: (r["name"] not in pin_col, -value(r, r["best"]))):
+            fits = ([i for i, s in enumerate(slots) if s["label"] == pins[r["name"]]] if r["name"] in pins else
+                    [i for i, s in enumerate(slots) if r.get(s["pos"]) is not None and (not s.get("left") or r["left"] == "yes")])
+            if not fits:
+                spare.append(r)
+                continue
+            pos = max({slots[i]["pos"] for i in fits}, key=lambda pos: value(r, pos))  # best position in the formation
+            ok = [i for i in fits if slots[i]["pos"] == pos]
+            pinned = r["name"] in pins
+            if pinned:
+                for i in fits:
+                    waiting[i] -= 1
+            # left-footed slots first (only left-footers reach them), then slots no pinned player is waiting for
+            pref = lambda i: (not slots[i].get("left"), 0 if pinned else waiting[i], i)
+            depths = (pin_col[r["name"]],) if r["name"] in pin_col else (0, 1)
+            free = [(d, *pref(i), i) for d in depths if d < 2 for i in ok if not cols[d][i]]
+            d, i = (min(free)[0], min(free)[-1]) if free else (2, min(ok, key=lambda i: (len(cols[2][i]), *pref(i))))
+            cols[d][i].append({"name": r["name"], "age": r["age"], "loan": r["loan"], "v": value(r, pos), "score": r[pos], "left": r["left"] == "yes",
+                               "pct": r[pos] * r["vsAge"] / r["score"] if pct and r["age"] <= GRID_PCT_AGE else None})
+        return cols, spare
+
+    is_senior = lambda r: r["age"] > youth_age or r["name"] in promoted
+    senior, spare = allocate([r for r in here if is_senior(r)], lambda r, pos: r[pos], True)
+    vs_age = lambda r, pos: r[pos] * r["vsAge"] / r["score"]  # score ÷ age benchmark
+    youth, spare_youth = allocate([r for r in here if not is_senior(r) and r["name"] not in intake], vs_age, False)
+    new, spare_new = allocate([r for r in here if not is_senior(r) and r["name"] in intake], vs_age, False)
+    brief = lambda r, v: {"name": r["name"], "age": r["age"], "pos": r["best"], "v": v}
+    return {"youthAge": youth_age, "pctAge": GRID_PCT_AGE,
+            "slots": [{"label": s["label"], "pos": s["pos"], "left": bool(s.get("left")),
+                       "senior": [c[i] for c in senior], "youth": [c[i] for c in youth],
+                       "intake": [c[i] for c in new]} for i, s in enumerate(slots)],
+            "spare": [brief(r, r["score"]) for r in sorted(spare, key=lambda r: -r["score"])],
+            "spareYouth": [brief(r, r["vsAge"]) for r in sorted(spare_youth + spare_new, key=lambda r: -r["vsAge"])],
+            "loanOut": [brief(r, r["score"]) for r in squad if r["loan"] == "out" and r["name"] not in pinned_any],
+            "players": {r["name"]: r for r in squad}}  # for the history overlay
+
+
 # --- staff ---
 
 def load_staff(staff_dir, words):
@@ -260,6 +331,12 @@ def build(save, config):
         if r["club"] == managed and (r["history"][-1]["date"] < squad_date or r["name"] in cfg.get("released", [])):
             r["club"] = f"left {managed}"
     squad = [r for r in rows if r["club"] == managed]
+    # The latest youth intake: players in the newest obs file(s) whose source mentions "intake", until a squad screen
+    # shows them (signed: they join the youth; let go: they've left)
+    intake_date = max((f["date"] for f in obs_files.values() if "intake" in f["source"]), default="")
+    intake = {n for n, p in players.items()
+              if any(obs_files[f]["date"] == intake_date and "intake" in obs_files[f]["source"] for f in p["files"])
+              and not any(obs_files[f]["date"] >= intake_date and not obs_files[f]["source"].startswith("search-") for f in p["files"])}
 
     roles = w.get("staff", {})
     staff = load_staff(save_dir / "staff", w.get("staff_words", {}))
@@ -274,6 +351,7 @@ def build(save, config):
 
     return cfg, {
         "squad": (player_cols(w, False), squad),
+        "grid": (player_cols(w, False), grid(squad, w, cfg, intake)),  # the columns are for the history overlay
         "elsewhere": (player_cols(w, True), [r for r in rows if r["club"] != managed]),
         # a screenshot of just names (e.g. a shortlist) picks players already observed; otherwise the batch's files
         "last": (player_cols(w, True), [r for r in rows if r["name"] in last_names] if last_names
@@ -294,12 +372,13 @@ def write_pages(save, config, cfg, pages):
     out.mkdir(parents=True, exist_ok=True)
     home = html.escape(cfg["short_name"])
     labels = {p: home if p == "squad" else p.replace("_", " ") for p in PAGES}
-    site = json.dumps({"pages": {str(i): p for i, p in enumerate(PAGES, 1)}, "currency": config.get("currency", "£")})
+    keys = {p: str(i % 10) for i, p in enumerate(PAGES, 1)}  # the tenth page is key 0
+    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "currency": config.get("currency", "£")})
     theme = (ROOT / "theme.css").read_text(encoding="utf-8")
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
     weights = json.dumps({"GK": w["gk"], **w["outfield"], **w.get("staff", {})}, ensure_ascii=False)  # for the history overlay
     for page, (columns, data) in pages.items():
-        nav = "".join(f'<a href="{p}.html"{" class=\"on\"" if p == page else ""}>{i} {labels[p]}</a>' for i, p in enumerate(PAGES, 1))
+        nav = "".join(f'<a href="{p}.html"{" class=\"on\"" if p == page else ""}>{keys[p]} {labels[p]}</a>' for p in PAGES)
         data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")  # a "</script>" in a name can't end the script
         template = (ROOT / ("charts.html" if page == "charts" else "template.html")).read_text(encoding="utf-8")
         page_html = (template.replace("__THEME__", theme).replace("__NAV__", nav)
@@ -308,7 +387,7 @@ def write_pages(save, config, cfg, pages):
                      .replace("__COLS__", json.dumps(columns)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
     print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d)})" for p, (_, d) in pages.items()
-                                                 if p not in ("filters", "charts", "staff_filters", "settings")))
+                                                 if p not in ("grid", "filters", "charts", "staff_filters", "settings")))
     return out
 
 
