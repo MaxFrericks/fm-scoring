@@ -34,6 +34,7 @@ __THEME__
   .dot.hl { stroke: var(--fg); stroke-width: 2; fill-opacity: 1; }
   .hit { fill: transparent; cursor: pointer; }
   .median { stroke: var(--fg); stroke-width: 2; }
+  .median-label { fill: var(--fg); font-size: 11px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; pointer-events: none; }
   .trend { stroke: var(--dim); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
   .squad-label { fill: var(--orange); font-size: 10px; pointer-events: none; }
   #tip { position: fixed; pointer-events: none; background: var(--desk); border: 1px solid var(--line); padding: 6px 10px;
@@ -47,7 +48,7 @@ __THEME__
   <span class="seg"><span class="lbl">division</span><select id="division"></select></span>
   <span class="seg"><span class="lbl">club</span><select id="club"></select></span>
   <span class="seg" id="pos"><span class="lbl">position</span></span>
-  <span class="seg" id="speed"><span class="lbl">speed</span></span>
+  <span class="seg" id="speed"><span class="lbl">attribute</span></span>
   <span class="legend"><span><i style="background:var(--blue)"></i><span id="lLeague"></span> <span id="nLeague"></span></span><span><i style="background:var(--orange)"></i><span id="lClub"></span> <span id="nSquad"></span></span></span>
 </div>
 <div class="grid">
@@ -63,11 +64,12 @@ const MIN_DIVISION = 20, perDivision = {};
 for (const p of DATA) if (p.division) perDivision[p.division] = (perDivision[p.division] || 0) + 1;
 const DIVISIONS = Object.keys(perDivision).filter(d => perDivision[d] >= MIN_DIVISION).sort();
 const short = d => d.replace(/^Sky Bet /, "");
-const SPEEDS = { avg: "Acc + Pace", Acceleration: "Acceleration", Pace: "Pace" };
+const SPEEDS = { Acceleration: "Acceleration", Pace: "Pace", "Jumping Reach": "Jumping Reach", Agility: "Agility" };
 const STORE = "fm:__SAVE__:charts", SITE = __SITE__;
-let state = { pos: POSITIONS.find(p => p !== "GK") || POSITIONS[0], speed: "avg",
+let state = { pos: POSITIONS.find(p => p !== "GK") || POSITIONS[0], speed: "Acceleration",
               division: DIVISIONS.includes(HOME_DIVISION) ? HOME_DIVISION : DIVISIONS[0], club: MANAGED };
 try { Object.assign(state, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
+if (!(state.speed in SPEEDS)) state.speed = "Acceleration";
 if (!POSITIONS.includes(state.pos)) state.pos = POSITIONS[0];
 if (!DIVISIONS.includes(state.division)) state.division = DIVISIONS[0];
 // The division's players are the baseline; the club's are highlighted (the managed club: its squad screen)
@@ -75,11 +77,13 @@ const inLeague = p => !p.squad && p.division === state.division;
 const isHl = p => state.club === MANAGED ? p.squad : inLeague(p) && p.club === state.club;
 const clubs = () => [MANAGED, ...[...new Set(DATA.filter(inLeague).map(p => p.club))].filter(c => c !== MANAGED).sort()];
 let VIEW = [];
+// Axes span every division (and the highlighted club), so switching division doesn't move them
+const AXIS_POOL = () => DATA.filter(p => (!p.squad && DIVISIONS.includes(p.division)) || p.hl);
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
 
 const money = v => SITE.currency + (v >= 1e6 ? +(v / 1e6).toFixed(2) + "M" : v >= 1e3 ? +(v / 1e3).toFixed(2) + "K" : v);
-// Keepers have no Pace, so their speed is Acceleration alone
-const speed = p => state.speed === "avg" ? (p.Pace == null ? p.Acceleration : (p.Acceleration + p.Pace) / 2) : p[state.speed];
+// Keepers have no Pace or Jumping Reach, and only keepers have Agility: players without one drop out of its charts
+const speed = p => p[state.speed];
 const inGroup = (p, pos) => p.scores[pos] != null && p.best === pos;  // each player in their best role
 const jitter = name => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0; return ((h >>> 0) % 1000) / 1000 - 0.5; };
 const median = vs => { const s = [...vs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -111,7 +115,7 @@ function hover(p, e) {
   const sc = Object.entries(p.scores).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(" · ");
   tip.innerHTML = `<div class="nm">${p.name}</div><div class="d">${p.club} · ${p.age} · ${p.wage == null ? "–" : money(p.wage) + " p/w"}</div>` +
     `<div>${sc} <span class="d">(best ${p.best})</span></div>` +
-    `<div>${p.rating == null ? "" : `rating ${p.rating.toFixed(2)} <span class="d">in ${p.minutes} mins</span> · `}acc ${p.Acceleration ?? "–"} · pace ${p.Pace ?? "–"}</div>`;
+    `<div>${p.rating == null ? "" : `rating ${p.rating.toFixed(2)} <span class="d">in ${p.minutes} mins</span> · `}acc ${p.Acceleration ?? "–"} · pace ${p.Pace ?? "–"} · ${p.Agility != null ? `agility ${p.Agility}` : `jump ${p["Jumping Reach"] ?? "–"}`}</div>`;
   tip.style.display = "block";
   const x = e.clientX + 14, y = e.clientY + 14, w = tip.offsetWidth, h = tip.offsetHeight;
   tip.style.left = Math.min(x, innerWidth - w - 8) + "px"; tip.style.top = (y + h > innerHeight ? e.clientY - h - 10 : y) + "px";
@@ -135,24 +139,35 @@ function axis(svg, scale, horizontal, at, span, label) {
   }
 }
 
-// One row of dots per position; tick = league median
-function strip(id, value, label, groupFor, step) {
+// One row of dots per position; tick = league median (labelled with its value when showMedian)
+// min: where the axis starts; values below it sit on the axis's left edge
+function strip(id, value, label, groupFor, step, showMedian, min) {
   const box = document.getElementById(id); box.innerHTML = "";
   const W = box.clientWidth, rowH = 46, L = 64, R = 46, H = POSITIONS.length * rowH + 30;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, box);
   const rows = POSITIONS.map(pos => ({ pos, ps: VIEW.filter(p => groupFor(p, pos) && value(p, pos) != null) }));
-  const all = rows.flatMap(r => r.ps.map(p => value(p, r.pos)));
-  if (!all.length) return;
-  const x = linear(extent(all, 0.04), [L, W - R], step);
-  axis(svg, x, true, H - 24, H - 24, label);
+  const all = POSITIONS.flatMap(pos => AXIS_POOL().filter(p => groupFor(p, pos)).map(p => value(p, pos)).filter(v => v != null));
+  if (!rows.some(r => r.ps.length)) return;
+  const [lo, hi] = extent(all, 0.04), sx = linear([min ?? lo, hi], [L, W - R], step), x = v => sx(Math.max(v, sx.domain[0]));
+  axis(svg, sx, true, H - 24, H - 24, label);
+  const labels = [];
   rows.forEach(({ pos, ps }, i) => {
     const cy = i * rowH + rowH / 2, league = ps.filter(inLeague);
     const t = el("text", { x: 0, y: cy + 4, class: "row-label" + (pos === state.pos ? " on" : "") }, svg); t.textContent = pos;
     t.addEventListener("click", () => set("pos", pos));
     el("text", { x: W, y: cy + 4, "text-anchor": "end", class: "row-n" }, svg).textContent = `n=${league.length}`;
     for (const p of [...ps.filter(p => !p.hl), ...ps.filter(p => p.hl)]) dot(svg, p, x(value(p, pos)), cy + jitter(p.name + pos) * (rowH - 14));
-    if (league.length) { const m = x(median(league.map(p => value(p, pos)))); el("line", { x1: m, x2: m, y1: cy - rowH / 2 + 3, y2: cy + rowH / 2 - 3, class: "median" }, svg); }
+    if (league.length) {
+      const v = median(league.map(p => value(p, pos))), m = x(v);
+      el("line", { x1: m, x2: m, y1: cy - rowH / 2 + 3, y2: cy + rowH / 2 - 3, class: "median" }, svg);
+      if (showMedian) labels.push([m + 5, cy - rowH / 2 + 13, v.toFixed(1)]);
+    }
   });
+  // Drawn last, on a backing box, so no dot covers them
+  for (const [lx, ly, text] of labels) {
+    el("rect", { x: lx - 2, y: ly - 11, width: text.length * 7 + 4, height: 14, rx: 2, fill: "var(--bg)", "fill-opacity": 0.85 }, svg);
+    el("text", { x: lx, y: ly, class: "median-label" }, svg).textContent = text;
+  }
 }
 
 function fit(pts) {
@@ -174,7 +189,8 @@ function scatter(spec) {
   const box = document.createElement("div"); tile.appendChild(box);
   const W = box.clientWidth, H = Math.max(240, Math.min(360, W * 0.62)), L = 40, B = 34, T = 14, R = 10;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, height: H }, box);
-  const xs = ps.map(spec.x), ys = ps.map(spec.y);
+  const pool = AXIS_POOL().filter(p => inGroup(p, state.pos) && spec.x(p) != null && spec.y(p) != null);
+  const xs = pool.map(spec.x), ys = pool.map(spec.y);
   const x = log ? logScale([Math.min(...xs) / 1.25, Math.max(...xs) * 1.25], [L, W - R]) : linear(extent(xs, 0.05), [L, W - R]);
   const y = linear(extent(ys, 0.06), [H - B, T]);
   axis(svg, x, true, H - B, H - B - T, spec.xl); axis(svg, y, false, L, W - L - R, spec.yl);
@@ -199,7 +215,7 @@ function scatter(spec) {
 function render() {
   if (!clubs().includes(state.club)) state.club = MANAGED;
   VIEW = DATA.filter(p => inLeague(p) || isHl(p));
-  for (const p of VIEW) p.hl = isHl(p);
+  for (const p of DATA) p.hl = isHl(p);
   for (const [id, opts] of [["division", DIVISIONS.map(d => [d, short(d)])], ["club", clubs().map(c => [c, c])]]) {
     const s = document.getElementById(id);
     s.innerHTML = opts.map(([v, l]) => `<option value="${v}"${v === state[id] ? " selected" : ""}>${l}</option>`).join("");
@@ -219,8 +235,8 @@ function render() {
   document.getElementById("nLeague").textContent = VIEW.filter(p => !p.hl).length;
   document.getElementById("nSquad").textContent = VIEW.filter(p => p.hl).length;
   const sp = SPEEDS[state.speed];
-  document.getElementById("t-strip-speed").textContent = state.speed === "avg" ? "Acceleration and pace attributes by position" : `${sp} attribute by position`;
-  strip("strip-score", (p, pos) => p.scores[pos], "role score", inGroup);
+  document.getElementById("t-strip-speed").textContent = `${sp} attribute by position`;
+  strip("strip-score", (p, pos) => p.scores[pos], "role score", inGroup, undefined, true, 10);
   strip("strip-speed", p => speed(p), sp, (p, pos) => p.best === pos, 2);
   document.getElementById("scatters").innerHTML = "";
   const pos = state.pos, score = p => p.scores[pos], rating = p => p.rating, spd = p => speed(p);
