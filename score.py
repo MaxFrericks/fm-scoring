@@ -294,6 +294,8 @@ def write_pages(save, config, cfg, pages):
     labels = {p: home if p == "squad" else p.replace("_", " ") for p in PAGES}
     site = json.dumps({"pages": {str(i): p for i, p in enumerate(PAGES, 1)}, "currency": config.get("currency", "£")})
     theme = (ROOT / "theme.css").read_text(encoding="utf-8")
+    w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
+    weights = json.dumps({"GK": w["gk"], **w["outfield"], **w.get("staff", {})}, ensure_ascii=False)  # for the history overlay
     for page, (columns, data) in pages.items():
         nav = "".join(f'<a href="{p}.html"{" class=\"on\"" if p == page else ""}>{i} {labels[p]}</a>' for i, p in enumerate(PAGES, 1))
         data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")  # a "</script>" in a name can't end the script
@@ -301,7 +303,7 @@ def write_pages(save, config, cfg, pages):
         page_html = (template.replace("__THEME__", theme).replace("__NAV__", nav)
                      .replace("__TITLE__", f"{home} · {labels[page]}").replace("__SAVE__", save)
                      .replace("__HOME__", home).replace("__PAGE__", page).replace("__SITE__", site)
-                     .replace("__COLS__", json.dumps(columns)).replace("__DATA__", data))
+                     .replace("__COLS__", json.dumps(columns)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
     print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d)})" for p, (_, d) in pages.items()
                                                  if p not in ("filters", "charts", "staff_filters", "settings")))

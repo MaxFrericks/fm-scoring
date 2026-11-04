@@ -42,6 +42,10 @@ __THEME__
   #detail .tile { width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; }
   #detail table + .ttitle { margin-top: 14px; }
   #detail .chg { font-size: 11px; margin-left: 4px; }
+  /* Weights: small, dim multipliers behind a divider, so they don't read as attribute values */
+  td.wt { color: var(--dim); font-size: 11px; border-right: 1px solid var(--line); padding-right: 12px; }
+  th.wt { border-right: 1px solid var(--line); padding-right: 12px; }
+  #detail th.group { text-align: center; color: var(--dim); font-weight: normal; }
   #help .tile { width: min(620px, calc(100vw - 32px)); }
   #help td:first-child { color: var(--cyan); }
   #help b { color: var(--fg); font-weight: normal; }
@@ -95,6 +99,7 @@ const FMT = {
 // Colour bands: value range mapped to red → green in five steps (t0–t4)
 const RANGE = { f1: [6, 13], f2: [6.5, 7.1], pct: [0.6, 1.0], attr: [5, 15] };  // f2: average match rating
 const COLS = __COLS__;
+const WEIGHTS = __WEIGHTS__;  // { position or staff role: { attribute: weight } }
 const ALIASES = { lefty: "left", leftfoot: "left", player: "name", pos: "best", position: "best", vs: "vsAge" };
 const STORE = "fm:__SAVE__:" + PAGE;
 const input = document.getElementById("filter"), help = document.getElementById("help"), detail = document.getElementById("detail");
@@ -222,7 +227,11 @@ function showDetail(r) {
       pos.map(k => `<td class="num ${tier(h[k], RANGE.f1)}">${FMT.f1(h[k])}${chg(h[k], p?.[k])}</td>`).join("") +
       `<td class="text">${h.best ?? "–"}</td>${vs ? `<td class="num ${tier(h.vsAge, RANGE.pct)}">${FMT.pct(h.vsAge)}</td>` : ""}</tr>`;
   }).join("");
-  const attrRows = Object.keys(last.attrs).map(a => `<tr><td>${a}</td>` + H.map((h, i) => {
+  // Attributes ranked by the best position's (or staff role's) weight, alphabetical within a weight
+  const wpos = [last.best].filter(k => WEIGHTS[k]), wt = a => wpos.length ? WEIGHTS[wpos[0]][a] ?? 0 : 0;
+  const attrs = Object.keys(last.attrs).sort((a, b) => wt(b) - wt(a) || a.localeCompare(b));
+  const attrRows = attrs.map(a => `<tr><td>${a}</td>` +
+    wpos.map(() => `<td class="num wt">${wt(a) ? "×" + wt(a) : "–"}</td>`).join("") + H.map((h, i) => {
     const v = h.attrs[a], p = H[i - 1]?.attrs[a];
     return v == null ? `<td class="num dim">–</td>` :
       `<td class="num ${tier(v, RANGE.attr)}">${v}${p == null || p === v ? "" : `<span class="chg ${v > p ? "t4" : "t0"}">${v > p ? "+" : "−"}${Math.abs(v - p)}</span>`}</td>`;
@@ -234,7 +243,8 @@ function showDetail(r) {
     <table><thead><tr><th>Date</th><th>Club</th><th class="num">Age</th>${pos.map(k => `<th class="num">${k}</th>`).join("")}<th>Best</th>${vs ? `<th class="num">vs Age</th>` : ""}</tr></thead>
       <tbody>${scoreRows}</tbody></table>
     <div class="ttitle">Attributes</div>
-    <table><thead><tr><th></th>${H.map(h => `<th class="num">${h.date}</th>`).join("")}</tr></thead>
+    <table><thead>${wpos.length ? `<tr><th></th><th class="group wt">weight</th><th class="group" colspan="${H.length}">value</th></tr>` : ""}
+      <tr><th></th>${wpos.map(k => `<th class="num wt">${k}</th>`).join("")}${H.map(h => `<th class="num">${h.date}</th>`).join("")}</tr></thead>
       <tbody>${attrRows}</tbody></table>`;
   detail.classList.add("show");
 }
@@ -247,9 +257,9 @@ function renderFilters() {
   main.innerHTML = DATA.map(f => `<div class="tile">
     <div class="ttitle">${f.pos}${f.title ? ` <span class="sub">· ${f.title}</span>` : ""}</div>
     <table>
-      <thead><tr><th>Attribute</th><th class="num">Wt</th>${f.players.map(p =>
+      <thead><tr><th>Attribute</th><th class="num wt">Wt</th>${f.players.map(p =>
         `<th class="num">${p.name}<br><span class="sub">${p.age != null ? p.age + "y · " : ""}${p.score.toFixed(1)}</span></th>`).join("")}<th class="num search">Search ≥</th></tr></thead>
-      <tbody>${f.rows.map(r => `<tr class="${r.min == null ? "minor" : ""}"><td>${r.attr}</td><td class="num dim">${r.weight}</td>${r.values.map((v, i) =>
+      <tbody>${f.rows.map(r => `<tr class="${r.min == null ? "minor" : ""}"><td>${r.attr}</td><td class="num wt">×${r.weight}</td>${r.values.map((v, i) =>
         `<td class="num ${tier(v, RANGE.attr)}">${r.labels ? r.labels[i] : v}</td>`).join("")}<td class="num search">${r.min == null ? "–" : r.min}</td></tr>`).join("")}</tbody>
     </table></div>`).join("");
 }
