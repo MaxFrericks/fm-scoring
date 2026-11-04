@@ -28,11 +28,11 @@ Dribbling = 3
 Pace = 5
 Passing = 2
 Positioning = 2
-Stamina = 5
+Stamina = 4
 Strength = 1
 Tackling = 1
 Teamwork = 2
-"Work Rate" = 4
+"Work Rate" = 3
 
 [outfield.10]
 Acceleration = 5
