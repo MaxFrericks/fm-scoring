@@ -254,8 +254,10 @@ def build(save, config):
     # Anyone at the managed club but missing from its latest squad screen has left (sold, released)
     squad_date = max((f["date"] for f in obs_files.values() if not f["source"].startswith("search-") and managed in f["clubs"]),
                      default="")
+    # ...as has anyone in save.toml's `released` (sold or released since the latest squad screen)
+    check_listed(cfg, "released", players.keys(), "has players never observed")
     for r in rows:
-        if r["club"] == managed and r["history"][-1]["date"] < squad_date:
+        if r["club"] == managed and (r["history"][-1]["date"] < squad_date or r["name"] in cfg.get("released", [])):
             r["club"] = f"left {managed}"
     squad = [r for r in rows if r["club"] == managed]
 
