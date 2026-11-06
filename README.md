@@ -14,8 +14,8 @@ Works on Mac, Windows and Linux.
 
 ## Just want the FM views and search filters?
 
-This project comes with ready-made FM views and search filters that you can use on their own. They're in three
-folders: `views`, `player search filters` and `staff search filters`. To add them to FM:
+This project comes with ready-made FM views, search filters and training schedules that you can use on their own.
+They're in four folders: `views`, `player search filters`, `staff search filters` and `schedules`. To add them to FM:
 
 1. **Download them.** At the top of this page, click the green **Code** button, then **Download ZIP**. Open the
    downloaded file to unzip it. You'll get a folder called `fm-scoring-main`.
@@ -28,7 +28,7 @@ folders: `views`, `player search filters` and `staff search filters`. To add the
      **Documents → Sports Interactive → Football Manager 27** instead.
 
    You're in the right place if you can see folders such as `views` and `tactics`.
-4. **Copy the files in.** Do this for each of the three folders:
+4. **Copy the files in.** Do this for each of the four folders:
    - Open the folder in `fm-scoring-main` (e.g. `views`), select all the files in it (**⌘ A** on Mac, **Ctrl A** on
      Windows) and copy them (**⌘ C** / **Ctrl C**).
    - Open the folder with the same name in FM's folder and paste them (**⌘ V** / **Ctrl V**). If FM's folder doesn't
@@ -36,9 +36,9 @@ folders: `views`, `player search filters` and `staff search filters`. To add the
 
    Copy the files, not the whole folder. On a Mac, dragging a folder onto one with the same name and choosing
    **Replace** deletes the views you already have. If you're asked about replacing a file with the same name,
-   that's one of your own views or filters, so choose **Skip** if you want to keep yours.
+   that's one of your own views, filters or schedules, so choose **Skip** if you want to keep yours.
 5. **Start FM.** The views are in the view options above player and staff lists. The filters are in the player and
-   staff search screens. Each one has the name of its file.
+   staff search screens. The schedules are in the training screen. Each one has the name of its file.
 
 ---
 
@@ -106,8 +106,8 @@ It saves your answers, so you only do this once per save.
 ### 5. Set up your views in FM
 
 The assistant only knows what your screenshots show, so FM's player lists need the right columns. This project
-comes with ready-made FM views (`views`) and search filters (`player search filters`, `staff search filters`), all
-`.fmf` files, and the assistant offers to copy them into FM's folders of the same names for you. **Close FM first**,
+comes with ready-made FM views (`views`), search filters (`player search filters`, `staff search filters`) and
+training schedules (`schedules`), all `.fmf` files, and the assistant offers to copy them into FM's folders of the same names for you. **Close FM first**,
 then reopen it afterwards so it picks them up.
 
 | View | Use it on | Columns |

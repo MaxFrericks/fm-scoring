@@ -29,7 +29,7 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
 | `weights/<name>.toml` | Position weights (`[outfield.*]`, `[gk]`), age benchmarks, and staff scoring: `[staff_words]` (FM's words → numbers) and `[staff.<role>]` (the role's column label, then attribute weights). |
 | `weights/<name>_staff.md` | Notes on the staff weights: sources, FM27 key attributes, calibration. |
-| `views/`, `player search filters/`, `staff search filters/` | FM27 views and search filters (`.fmf`), named like FM's own folders. |
+| `views/`, `player search filters/`, `staff search filters/`, `schedules/` | FM27 views, search filters and training schedules (`.fmf`), named like FM's own folders. |
 | `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup) and `screenshots` (list new ones). Stdlib only. |
 | `template.html` | Every page but charts. Its `?` overlay is the reference for keys and filter syntax. |
 | `charts.html` | Page 6: hand-drawn SVG charts. |
@@ -118,7 +118,7 @@ words, one step at a time, no jargon, and do the typing for them. `README.md` is
 3. **FM views:** offer to install the views and filters. Ask them to quit FM first. Find FM's data folder: Mac
    `~/Library/Application Support/Sports Interactive/Football Manager 27`. On Windows, look under `Documents\Sports Interactive`
    and `%LOCALAPPDATA%\Sports Interactive` for the `Football Manager 27` folder that contains `views`;
-   if you can't find it, ask. Copy `views/`, `player search filters/` and `staff search filters/` into the folders of the same
+   if you can't find it, ask. Copy `views/`, `player search filters/`, `staff search filters/` and `schedules/` into the folders of the same
    names there, creating any that are missing. Never overwrite a file of the same name without asking. Then tell them the
    columns README's step 5 lists for the views that aren't included (whole league).
    The attributes come from the weights file, so if it's not `fm27`, list that file's instead (and the views may need editing).
