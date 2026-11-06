@@ -45,7 +45,9 @@ __THEME__
   /* Weights: small, dim multipliers behind a divider, so they don't read as attribute values */
   td.wt { color: var(--dim); font-size: 11px; border-right: 1px solid var(--line); padding-right: 12px; }
   th.wt { border-right: 1px solid var(--line); padding-right: 12px; }
+  #detail .wt.nb { border-right: 0; }
   #detail th.group { text-align: center; color: var(--dim); font-weight: normal; }
+  #detail th.ago { color: var(--dim); font-weight: normal; border-bottom: 0; padding-bottom: 0; }
   #help .tile { width: min(620px, calc(100vw - 32px)); }
   #help td:first-child { color: var(--cyan); }
   #help b { color: var(--fg); font-weight: normal; }
@@ -242,6 +244,27 @@ document.addEventListener("keydown", e => {
   e.preventDefault();
 });
 
+// The attributes table shows one date per transfer window, newest first: each observation goes to its nearest
+// window (Oct–Mar → January, Apr–Sep → summer), which keeps the date closest to 1 Jan / 1 Jul; the latest always shows
+function windowDates(H) {
+  const win = new Map(), last = H[H.length - 1];
+  const key = d => { const [y, m] = d.split("-").map(Number); return m >= 10 ? [y + 1, 1] : m <= 3 ? [y, 1] : [y, 7]; };
+  for (const h of H) {
+    const [y, m] = key(h.date), k = `${y}-${m}`;
+    const off = Math.abs(new Date(h.date) - new Date(Date.UTC(y, m - 1, 1)));
+    const cur = win.get(k);
+    if (cur?.h === last) continue;
+    if (h === last || !cur || off < cur.off) win.set(k, { h, off });
+  }
+  return [...win.values()].map(w => w.h).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Game time since a date, to the save's latest game date (any screenshot): "1.5 years"; blank for now (0.0)
+const yearsAgo = d => {
+  const y = SITE.gameDate ? ((new Date(SITE.gameDate) - new Date(d)) / 31557600000).toFixed(1) : "0.0";
+  return y === "0.0" ? "" : `${y} years`;
+};
+
 // Player history: one row per observation date, then attribute values by date
 function showDetail(r) {
   const H = r.history, last = H[H.length - 1], vs = H.some(h => h.vsAge != null);
@@ -257,9 +280,15 @@ function showDetail(r) {
   // Attributes ranked by the best position's (or staff role's) weight, alphabetical within a weight
   const wpos = [last.best].filter(k => WEIGHTS[k]), wt = a => wpos.length ? WEIGHTS[wpos[0]][a] ?? 0 : 0;
   const attrs = Object.keys(last.attrs).sort((a, b) => wt(b) - wt(a) || a.localeCompare(b));
+  const AH = windowDates(H), gr = H.length > 1;
+  // Growth: latest known value minus the first, over every observation
+  const growth = a => {
+    const vs = H.map(h => h.attrs[a]).filter(v => v != null), g = vs.length > 1 ? vs[vs.length - 1] - vs[0] : 0;
+    return `<td class="num wt">${g ? `<span class="${g > 0 ? "t4" : "t0"}">${g > 0 ? "+" : "−"}${Math.abs(g)}</span>` : ""}</td>`;
+  };
   const attrRows = attrs.map(a => `<tr><td>${a}</td>` +
-    wpos.map(() => `<td class="num wt">${wt(a) ? "×" + wt(a) : "–"}</td>`).join("") + H.map((h, i) => {
-    const v = h.attrs[a], p = H[i - 1]?.attrs[a];
+    wpos.map(() => `<td class="num wt${gr ? " nb" : ""}">${wt(a) ? "×" + wt(a) : "–"}</td>`).join("") + (gr ? growth(a) : "") + AH.map((h, i) => {
+    const v = h.attrs[a], p = AH[i + 1]?.attrs[a];
     return v == null ? `<td class="num dim">–</td>` :
       `<td class="num ${tier(v, RANGE.attr)}">${v}${p == null || p === v ? "" : `<span class="chg ${v > p ? "t4" : "t0"}">${v > p ? "+" : "−"}${Math.abs(v - p)}</span>`}</td>`;
   }).join("") + "</tr>").join("");
@@ -270,8 +299,9 @@ function showDetail(r) {
     <table><thead><tr><th>Date</th><th>Club</th><th class="num">Age</th>${pos.map(k => `<th class="num">${k}</th>`).join("")}<th>Best</th>${vs ? `<th class="num">vs Age</th>` : ""}</tr></thead>
       <tbody>${scoreRows}</tbody></table>
     <div class="ttitle">Attributes</div>
-    <table><thead>${wpos.length ? `<tr><th></th><th class="group wt">weight</th><th class="group" colspan="${H.length}">value</th></tr>` : ""}
-      <tr><th></th>${wpos.map(k => `<th class="num wt">${k}</th>`).join("")}${H.map(h => `<th class="num">${h.date}</th>`).join("")}</tr></thead>
+    <table><thead>${wpos.length ? `<tr><th></th><th class="group wt${gr ? " nb" : ""}">weight</th>${gr ? `<th class="group wt">growth</th>` : ""}<th class="group" colspan="${AH.length}">value</th></tr>` : ""}
+      <tr><th class="ago"></th>${wpos.map(() => `<th class="wt ago${gr ? " nb" : ""}"></th>`).join("")}${gr ? `<th class="wt ago"></th>` : ""}${AH.map(h => `<th class="num ago">${yearsAgo(h.date)}</th>`).join("")}</tr>
+      <tr><th></th>${wpos.map(k => `<th class="num wt${gr ? " nb" : ""}">${k}</th>`).join("")}${gr ? `<th class="num wt">${yearsAgo(H[0].date)}</th>` : ""}${AH.map(h => `<th class="num">${h.date}</th>`).join("")}</tr></thead>
       <tbody>${attrRows}</tbody></table>`;
   detail.classList.add("show");
 }

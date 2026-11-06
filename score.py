@@ -27,6 +27,7 @@ PAGES = ["squad", "grid", "elsewhere", "last", "filters", "charts", "staff", "la
 META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division"}  # every other column is an attribute
 STAFF_META = {"Name", "Club", "Age", "Job", "Personality"}
 LEFT_FOOTED = {"Fairly Strong", "Strong", "Very Strong"}
+PARTIAL_SQUAD = re.compile(r"-(u\d+s?|reserves)$")  # source of a youth/reserve squad screen: not the whole club
 SEARCH_MIN_WEIGHT = 2  # attributes weighted below this are left out of the filters page's search minimums
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 GRID_PCT_AGE = 24  # the grid page shows vs Age next to the score for senior players this age and under
@@ -67,10 +68,12 @@ def read_rows(folder):
 
 # --- players ---
 
-def load_players(obs_dir):
-    """Every observation row, grouped by player name and then game date; plus each file's date, source and clubs."""
+def load_players(obs_dir, aliases=None):
+    """Every observation row, grouped by player name (truncated names via `aliases` to the full one) and then game date;
+    plus each file's date, source and clubs."""
     players, files = {}, {}
     for path, row in read_rows(obs_dir):
+        row["Name"] = (aliases or {}).get(row["Name"], row["Name"])
         date, source, view = path.stem[:10], path.stem[11:].rsplit("_", 1)[0], path.stem.rsplit("_", 1)[1]
         files.setdefault(path.name, {"date": date, "source": source, "clubs": set()})["clubs"].add(row["Club"])
         p = players.setdefault(row["Name"], {"keeper": False, "files": set(), "dates": {}})
@@ -174,22 +177,34 @@ def grid(squad, w, cfg, intake):
     their best position: its first free Starter, else Backup, else Third, which takes any number (players to sell or
     loan out), shared across that position's slots. A left-footer prefers a left-footed slot. Out on loan isn't placed.
     save.toml's `grid_pins` (name = slot label, or { slot = label, col = "starter" | "backup" | "third" }, either
-    part optional; pinning places a player out on loan too) puts a
+    part optional, plus row = n for the nth slot with that label; pinning places a player out on loan too) puts a
     player in that slot instead, whatever their foot; other players steer clear of slots a pinned player is still to
     fill. Players pinned to a column go first, into that column.
-    The latest youth intake (`intake`: names) gets its own columns, placed like the youth."""
+    The latest youth intake (`intake`: names) gets its own columns, placed like the youth, except those in `grid_youth`."""
     slots = cfg.get("grid") or [{"label": p, "pos": p} for p in ["GK", *w["outfield"]]]
     columns = ["starter", "backup", "third"]
     pins = {n: v if isinstance(v, dict) else {"slot": v} for n, v in cfg.get("grid_pins", {}).items()}
     pin_col = {n: columns.index(v["col"]) for n, v in pins.items() if v.get("col") in columns}
     pinned_any = set(pins)  # pinned to a slot, a column, or both (a column alone: their best position)
+    pin_row = {n: v["row"] for n, v in pins.items() if v.get("slot") and v.get("row")}
     pins = {n: v["slot"] for n, v in pins.items() if v.get("slot")}
     check_listed({"grid_pins": list(pins)}, "grid_pins", {r["name"] for r in squad}, "names players not in the squad")
     if bad := set(pins.values()) - {s["label"] for s in slots}:
         raise SystemExit(f"save.toml grid_pins names slots not in grid: {sorted(bad)}")
+    pin_fits = {}  # name -> the slots they're pinned to (every slot with that label, or just its `row`th)
+    for n, label in pins.items():
+        fits = [i for i, s in enumerate(slots) if s["label"] == label]
+        if n in pin_row:
+            if not 1 <= pin_row[n] <= len(fits):
+                raise SystemExit(f"save.toml grid_pins: {n}'s row {pin_row[n]}, but grid has {len(fits)} {label!r} slot(s)")
+            fits = [fits[pin_row[n] - 1]]
+        pin_fits[n] = fits
     youth_age = cfg.get("youth_age", 18)
     promoted = set(cfg.get("grid_senior", []))  # youngsters the user has moved up to the senior squad
     check_listed(cfg, "grid_senior", {r["name"] for r in squad}, "names players not in the squad")
+    joined = set(cfg.get("grid_youth", []))  # intake players the user has kept: youth columns, not intake
+    check_listed(cfg, "grid_youth", {r["name"] for r in squad}, "names players not in the squad")
+    intake = intake - joined
     excluded = set(cfg.get("grid_exclude", []))  # still at the club but not in the plans (e.g. contract running out)
     check_listed(cfg, "grid_exclude", {r["name"] for r in squad}, "names players not in the squad")
     squad = [r for r in squad if r["name"] not in excluded]
@@ -199,10 +214,10 @@ def grid(squad, w, cfg, intake):
         cols, spare = [[[] for _ in slots] for _ in range(3)], []  # Starter, Backup, Third: lists of players per slot
         waiting = {}  # slot -> pinned players not yet placed: others steer clear of those slots at the same depth
         for r in players:
-            for i, s in enumerate(slots):
-                waiting[i] = waiting.get(i, 0) + (pins.get(r["name"]) == s["label"])
+            for i in range(len(slots)):
+                waiting[i] = waiting.get(i, 0) + (i in pin_fits.get(r["name"], ()))
         for r in sorted(players, key=lambda r: (r["name"] not in pin_col, -value(r, r["best"]))):
-            fits = ([i for i, s in enumerate(slots) if s["label"] == pins[r["name"]]] if r["name"] in pins else
+            fits = (pin_fits[r["name"]] if r["name"] in pins else
                     [i for i, s in enumerate(slots) if r.get(s["pos"]) is not None and (not s.get("left") or r["left"] == "yes")])
             if not fits:
                 spare.append(r)
@@ -316,20 +331,31 @@ def build(save, config):
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
     managed = cfg["managed_club"]
 
-    players, obs_files = load_players(save_dir / "obs")
+    players, obs_files = load_players(save_dir / "obs", cfg.get("aliases"))
     rows = [player_row(n, p, w) for n, p in players.items()]
     check_listed(cfg, "last_names", players.keys(), "has players never observed")
     check_listed(cfg, "last_batch", set(obs_files), "names files with no players")
     last_batch, last_names = set(cfg.get("last_batch", [])), set(cfg.get("last_names", []))
 
-    # Anyone at the managed club but missing from its latest squad screen has left (sold, released)
-    squad_date = max((f["date"] for f in obs_files.values() if not f["source"].startswith("search-") and managed in f["clubs"]),
-                     default="")
+    # Anyone at the managed club but missing from its latest squad screen has left (sold, released).
+    # A youth or reserve squad screen (`my-club-u18s`) shows only part of the club, so it doesn't count.
+    squad_date = max((f["date"] for f in obs_files.values() if not f["source"].startswith("search-")
+                      and not PARTIAL_SQUAD.search(f["source"]) and managed in f["clubs"]), default="")
     # ...as has anyone in save.toml's `released` (sold or released since the latest squad screen)
     check_listed(cfg, "released", players.keys(), "has players never observed")
     for r in rows:
         if r["club"] == managed and (r["history"][-1]["date"] < squad_date or r["name"] in cfg.get("released", [])):
             r["club"] = f"left {managed}"
+    # ...and anyone in `signed` (signed since the latest squad screen) has joined, until a newer squad screen leaves them out
+    check_listed(cfg, "signed", players.keys(), "has players never observed")
+    for r in rows:
+        if r["name"] in cfg.get("signed", []) and r["history"][-1]["date"] >= squad_date:
+            r["club"] = managed
+    # ...and anyone in `recalled` is back from loan (clears the "out" flag until the next squad screen)
+    check_listed(cfg, "recalled", players.keys(), "has players never observed")
+    for r in rows:
+        if r["name"] in cfg.get("recalled", []) and r["loan"] == "out":
+            r["loan"] = None
     squad = [r for r in rows if r["club"] == managed]
     # The latest youth intake: players in the newest obs file(s) whose source mentions "intake", until a squad screen
     # shows them (signed: they join the youth; let go: they've left)
@@ -373,7 +399,9 @@ def write_pages(save, config, cfg, pages):
     home = html.escape(cfg["short_name"])
     labels = {p: home if p == "squad" else p.replace("_", " ") for p in PAGES}
     keys = {p: str(i % 10) for i, p in enumerate(PAGES, 1)}  # the tenth page is key 0
-    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "currency": config.get("currency", "£")})
+    dates = [f.name[:10] for d in ("obs", "staff") for f in (ROOT / "saves" / save / d).glob("*.csv")]
+    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "currency": config.get("currency", "£"),
+                       "gameDate": max(dates, default=None)})  # the latest game date: the history overlay's "years ago"
     theme = (ROOT / "theme.css").read_text(encoding="utf-8")
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
     weights = json.dumps({"GK": w["gk"], **w["outfield"], **w.get("staff", {})}, ensure_ascii=False)  # for the history overlay

@@ -1,4 +1,4 @@
-# Player scoring weights for FM27: fm26.toml with Jumping renamed to Jumping Reach, then adjusted toward
+# Player scoring weights for FM27: the FM26 weights with Jumping renamed to Jumping Reach, then adjusted toward
 # harvestgreen22's FM27 attribute test (fm-arena thread 20925): fewer mental/technical 3s, more Stamina/Work Rate/Strength.
 # Score = sum(attribute * weight) / sum(weights). Attributes not listed count as 0.
 

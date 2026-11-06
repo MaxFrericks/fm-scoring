@@ -94,7 +94,7 @@ Type this to your assistant:
 
 It will check that everything is installed, then ask you a few questions:
 
-- **Which club you manage.** Type the name **exactly as FM shows it in its tables**, e.g. "Bradford", not "Bradford City".
+- **Which club you manage.** Type the name **exactly as FM shows it in its tables**, e.g. "Man Utd", not "Manchester United".
 - **Your club's division**, again exactly as FM shows it, e.g. "Sky Bet League One".
 - **Where your screenshots are saved.** If you're not sure, take a screenshot and see where it appears:
   - **Mac:** ⌘ Shift 4, then drag over the area. Screenshots go to your Desktop unless you've changed it.

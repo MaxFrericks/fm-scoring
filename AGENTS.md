@@ -24,7 +24,7 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 | Path | Purpose |
 |---|---|
 | `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`. Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
-| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_exclude` (left off the grid) and `released` (players gone since the latest squad screen). |
+| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
 | `saves/<save>/obs/*.csv` | Observations: `<YYYY-MM-DD>_<source>_<view>.csv`, one per screenshot set. Append-only. |
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
 | `weights/<name>.toml` | Position weights (`[outfield.*]`, `[gk]`), age benchmarks, and staff scoring: `[staff_words]` (FM's words → numbers) and `[staff.<role>]` (the role's column label, then attribute weights). |
@@ -55,7 +55,7 @@ The user says something like "new screenshots".
    If the date or club isn't visible (cropped), ask; don't guess.
 3. **Stop and ask** if the crest doesn't match `managed_club`, or the date is earlier than the latest
    in `obs/`. Either means a different save.
-4. **Transcribe** to `obs/<date>_<source>_<view>.csv`, where source is the club slug (`sk-lierse`) or
+4. **Transcribe** to `obs/<date>_<source>_<view>.csv`, where source is the club slug (`my-club`) or
    `search-<what>` (`search-cb`). Copy the header from an existing file of the same view.
    - Columns: `Name`, `Club`, `Age`, `Left Foot`, `Wage`, `Transfer Value`, `Loan`, then attributes as integers.
      If the view shows `Minutes`, `Rating` (average rating) and `Division`, add them after `Loan`, division in full
@@ -69,14 +69,15 @@ The user says something like "new screenshots".
    - `Left Foot` in full: `Very Weak` … `Very Strong`. Expand truncations (`Rea…` → `Reasonable`);
      `Ve…` is ambiguous, so leave it empty.
    - Names exactly as shown, truncation included (`Antony Papadopoul…`): the name is how a player is
-     matched over time. Map truncated headers to full attribute names.
+     matched over time. When the full name is known (e.g. from a transfer message), add it to `aliases` in save.toml
+     (`"Antony Papadopoul…" = "Antony Papadopoulos"`) and use the full name everywhere else in save.toml. Map truncated headers to full attribute names.
    - Merge scrolled screenshots of one list into one file, de-duplicated. More screenshots of a list
      that already has a file (same date, source, view) merge into it.
    - Spot-check rows against the image; misreads are the main risk.
 5. Set `last_batch` in `save.toml` to the file(s) from this update, and remove any `last_names`.
    If the screenshot is just a list of names of players already observed (e.g. a shortlist), set
    `last_names = [...]` instead (names exactly as in the obs files): page 4 then shows only them.
-6. Run `python3 score.py --open last` and commit: `git add saves && git commit -m "<save>: <what> <date>"`.
+6. Run `python3 score.py --open last` and commit the save data: `git -C saves add -A && git -C saves commit -m "<save>: <what> <date>"`.
 7. Report notable players: top of the new batch, big changes since a player's previous observation.
 
 ## Adding staff screenshots
@@ -111,7 +112,8 @@ words, one step at a time, no jargon, and do the typing for them. `README.md` is
 
    Write `config.toml` (from `config.example.toml`: `active_save`, `screenshots_dir`, `currency`) and
    `saves/<slug of club>/save.toml` (`weights` = the newest `weights/*.toml`, `managed_club`, `short_name`, `division`,
-   `last_batch = []`, `last_staff_batch = []`), and create its `obs/` and `staff/` folders.
+   `last_batch = []`, `last_staff_batch = []`), and create its `obs/` and `staff/` folders. If `saves/` isn't a git repo
+   yet, `git init saves` (it stays local: their data isn't pushed with the code).
    Check the screenshots folder exists.
 3. **FM views:** offer to install the views and filters. Ask them to quit FM first. Find FM's data folder: Mac
    `~/Library/Application Support/Sports Interactive/Football Manager 27`. On Windows, look under `Documents\Sports Interactive`
@@ -122,7 +124,7 @@ words, one step at a time, no jargon, and do the typing for them. `README.md` is
    The attributes come from the weights file, so if it's not `fm27`, list that file's instead (and the views may need editing).
 4. **First screenshots:** their squad screen with the outfield view, scrolling to cover everyone, then the GK view, with FM's
    date and their crest in shot. When they say "new screenshots", follow "Adding screenshots" below.
-5. Commit the new save.
+5. Commit the new save: `git -C saves add -A && git -C saves commit -m "<save>: new save"`.
 
 Another save: same steps; the new save becomes `active_save`. "Switch to my <club> save" = set `active_save`, run
 `score.py --open squad`. Keep the newest weights unless the user wants new ones: then copy e.g. `weights/fm27.toml`
@@ -139,8 +141,11 @@ If FM renames an attribute, use the new name in the CSV header and in the weight
   observation. Enter/double-click a player for their history by date.
 - **Left** = yes for Fairly Strong or better (`LEFT_FOOTED` in `score.py`).
 - **Left the club:** a managed-club player missing from the latest squad screen (non-`search-` file) moves to
-  elsewhere as `left <club>`. The user saying a player's gone ("sold X", "released X") before the next squad screen: add them
+  elsewhere as `left <club>`. A youth or reserve squad screen (source ending `-u18s`, `-u21s`, `-reserves`: `PARTIAL_SQUAD`)
+  shows only part of the club, so it updates its players but doesn't count as the squad screen. The user saying a player's gone ("sold X", "released X") before the next squad screen: add them
   to `released = [...]` in save.toml (name as in the obs files); don't edit obs files.
+  Likewise a signing ("signed X") goes in `signed = [...]`: they count as the managed club's until a newer squad screen. A player back from loan ("recalled X") goes in `recalled = [...]`: clears their `out` flag.
+  When a new squad screen comes in, empty `released`, `signed` and `recalled`.
 - **Loan** flags show next to names, from the latest observation that has a `Loan` column. Filter with `loan-in` / `loan-out` / `trial`.
 - **Rating / minutes / division:** from the latest observation only (they're per season); rating and minutes show on elsewhere and last.
 - **Charts page:** players rated in their latest observation, grouped by best role (or everyone at every role).
@@ -152,8 +157,8 @@ If FM renames an attribute, use the new name in the CSV header and in the weight
   loan out. A left-footer prefers the left-footed slot. Senior = older than `youth_age`, by position score, with vs Age
   for those `GRID_PCT_AGE` (24) and under; youth by that position's score ÷ age benchmark. Out-on-loan players aren't placed.
   The latest youth intake (players in the newest obs files whose source contains `intake`, e.g. `search-youth-intake`)
-  gets its own Intake columns, placed like the youth, until a squad screen shows them (then they're youth, or gone). With no intake, those columns are hidden.
-  `grid_pins` in save.toml (`"Full Name" = "slot label"`) overrides a player's slot: the user's own calls on who plays where. `{ slot = "M C", col = "third" }` also fixes the column
+  gets its own Intake columns, placed like the youth, until a squad screen shows them (then they're youth, or gone) or they're in `grid_youth` (the user's "keep X": youth columns now). With no intake, those columns are hidden.
+  `grid_pins` in save.toml (`"Full Name" = "slot label"`) overrides a player's slot: the user's own calls on who plays where. `{ slot = "M C", col = "third" }` also fixes the column, and `row = 2` picks the second slot of that label (rows counted down the grid)
   (starter / backup / third); those players are placed first. `{ col = "third" }` alone: their best position. A pinned player out
   on loan is placed too. `grid_exclude` leaves players off the grid altogether (e.g. contracts running out). Everyone still goes in by score, but unpinned
   players avoid (at the same depth) slots a pinned player is still to fill.
@@ -164,7 +169,9 @@ If FM renames an attribute, use the new name in the CSV header and in the weight
 
 ## Conventions
 
-- Local git only. Commit data and code separately.
+- Two git repos. The code repo (this folder) is public on GitHub and ignores `saves/`, `config.toml`, `out/` and `docs/`.
+  `saves/` is its own git repo, local only, never pushed: the user's save data stays private. Commit data there
+  (`git -C saves …`) and code here, separately. Never add personal details (email, real save names) to the code repo.
 - Display: scores `0.0`, vs Age `xx%`.
 - In `weights/*.toml`, quote keys with `/` or spaces: `[outfield."WB/6"]`, `"First Touch" = 1`.
 - Stdlib Python, no build step, no dependencies.
