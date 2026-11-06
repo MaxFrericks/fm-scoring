@@ -169,7 +169,7 @@ If FM renames an attribute, use the new name in the CSV header and in the weight
 
 ## Conventions
 
-- Two git repos. The code repo (this folder) is public on GitHub and ignores `saves/`, `config.toml`, `out/` and `docs/`.
+- Two git repos. The code repo (this folder) is public on GitHub and ignores `saves/`, `config.toml` and `out/`.
   `saves/` is its own git repo, local only, never pushed: the user's save data stays private. Commit data there
   (`git -C saves …`) and code here, separately. Never add personal details (email, real save names) to the code repo.
 - Display: scores `0.0`, vs Age `xx%`.

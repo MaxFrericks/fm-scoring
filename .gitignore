@@ -4,5 +4,4 @@ out/
 __pycache__/
 config.toml
 saves/
-docs/
 .backup/
