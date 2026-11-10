@@ -1,8 +1,10 @@
 # FM player scoring
 
 Scores Football Manager players on weighted attributes and tracks them over game time.
-FM has no data export, so the user takes screenshots of in-game player tables and an agent
-transcribes them to CSV. `score.py` turns those into ten pages per save (keys 1–9, then 0):
+FM has no data export, so there are two ways in: `score.py import` reads the save file itself (the managed club's
+squad and staff, via the `fmsave` package), and for everything else (transfer searches, other clubs, whole leagues)
+the user takes screenshots of in-game player tables and an agent transcribes them to CSV. Both write the same
+observation files. `score.py` turns those into ten pages per save (keys 1–9, then 0):
 
 1. **squad**: the club the user manages
 2. **grid**: the squad by formation slot (save.toml's `grid`): starter, backup, then third (to sell or loan out) by position score, then the
@@ -23,20 +25,41 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 
 | Path | Purpose |
 |---|---|
-| `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`. Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
-| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
+| `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`, and optionally `fmsave` (the command that runs fmsave, if it isn't `fmsave` or `uvx` on PATH). Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
+| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `save_file` (the `.fm` file `score.py import` reads), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
 | `saves/<save>/obs/*.csv` | Observations: `<YYYY-MM-DD>_<source>_<view>.csv`, one per screenshot set. Append-only. |
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
 | `weights/<name>.toml` | Position weights (`[outfield.*]`, `[gk]`), age benchmarks, and staff scoring: `[staff_words]` (FM's words → numbers) and `[staff.<role>]` (the role's column label, then attribute weights). |
 | `weights/<name>_staff.md` | Notes on the staff weights: sources, FM27 key attributes, calibration. |
 | `views/`, `player search filters/`, `staff search filters/`, `schedules/` | FM27 views, search filters and training schedules (`.fmf`), named like FM's own folders. |
-| `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup) and `screenshots` (list new ones). Stdlib only. |
+| `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup), `screenshots` (list new ones) and `import` (read the save file). Stdlib only; `import` runs the `fmsave` command. |
 | `template.html` | Every page but charts. Its `?` overlay is the reference for keys and filter syntax. |
 | `charts.html` | Page 6: hand-drawn SVG charts. |
 | `theme.css` | Omarchy / Tokyo Night theme, inlined into every page. |
 | `out/` | Generated; gitignored. |
 | `README.md` | For people: what this is and how to set up a new save. |
 | `CLAUDE.md` | Just imports this file. |
+
+## Importing the save file
+
+The user says something like "update from my save", "import my save" or "refresh my squad": run
+`python3 score.py import --open squad` and commit the save data (step 6 below). No screenshots, no transcribing.
+
+- It copies `save_file` (FM may be writing the real one), reads it with [fmsave](https://github.com/rhiever/fmsave)
+  (`fmsave` on PATH, else `uvx --python 3.12 fmsave`, else config.toml's `fmsave`; fmsave needs Python 3.12+, which
+  `uvx` fetches itself), and writes the managed club's squad as `obs/<game date>_<club slug>_outfield.csv` and
+  `_gk.csv` (keepers = natural position GK) and its staff as `staff/<game date>_<club slug>.csv`, exactly as a squad
+  screen and a staff screen would: FM's attribute names, FM's words for staff attributes, `Left Foot` as FM's word,
+  money as FM shows it (`FOOT_WORDS`, `staff_word`, `fm_money` in `score.py`). `Division` is save.toml's;
+  `Minutes` and `Rating` are the season's competitive matches. It then sets `last_batch` and `last_staff_batch`,
+  removes `last_names`/`last_staff_names`, and empties `released`, `signed` and `recalled` (it is a new squad screen).
+- Running it again on the same game date overwrites that date's files. The save manages a different club than
+  `managed_club`: it stops, like the crest check.
+- It reads only the managed club. Other clubs' players in the save carry their true attributes, not what the user's
+  scouts know, so searches and leagues still come from screenshots unless the user asks otherwise.
+- fmsave calls FM27 builds it hasn't seen "unverified" and borrows the nearest layout; the attributes have been
+  checked against the game, wages and values not yet (they're in fmsave's "base currency", which may differ from
+  the one FM shows). Ask the user to compare a wage or two with FM after the first import on a new build.
 
 ## Adding screenshots
 

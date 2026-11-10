@@ -4,9 +4,10 @@ A helper for Football Manager 2027. It gives every player you look at a score fo
 compare them at a glance: your own squad, transfer targets, whole leagues, and your staff. It remembers every
 player you've seen, so you can also watch how they develop over the seasons.
 
-FM can't export its data, so this works from screenshots. You take screenshots of FM's player lists, and an
-AI assistant (Claude Code or Codex) reads them for you and updates your pages. You never need to type
-any data in yourself.
+FM can't export its data, so this reads your save file: one request to your AI assistant (Claude Code or Codex)
+updates your squad and staff pages straight from the game's save. For players at other clubs (transfer searches,
+whole leagues), you take screenshots of FM's player lists and the assistant reads them for you. You never need to
+type any data in yourself.
 
 Works on Mac, Windows and Linux.
 
@@ -58,6 +59,8 @@ They're in four folders: `views`, `player search filters`, `staff search filters
   - **Codex**, which needs a paid ChatGPT plan. Install it from [developers.openai.com/codex](https://developers.openai.com/codex).
 - **Python**, version 3.11 or newer. It's free: download it from [python.org/downloads](https://www.python.org/downloads/).
   On Windows, tick **"Add python.exe to PATH"** on the installer's first screen.
+- **uv**, to read your save file. It's free: install it from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/).
+  (It fetches the extra bits the save reader needs. Skip it if you only want to use screenshots.)
 - **Git**, to download this project. Macs ask to install it the first time you need it. On Windows, get it from
   [git-scm.com](https://git-scm.com/downloads) and click Next through the installer.
 
@@ -108,6 +111,7 @@ It will check that everything is installed, then ask you a few questions:
   - **Mac:** ⌘ Shift 4, then drag over the area. Screenshots go to your Desktop unless you've changed it.
   - **Windows:** Windows key + Print Screen. Screenshots go to Pictures → Screenshots.
 - **Which currency** FM shows wages in (£, €, $…).
+- **Which save file** is this save, so it can read it. The assistant lists the ones FM has.
 
 It saves your answers, so you only do this once per save.
 
@@ -138,7 +142,16 @@ These are the attributes the views need:
   Concentration, Decisions, Handling, Kicking, One on Ones, Passing, Positioning, Reflexes and Throwing.
 - **Whole league** (for the charts page): the search view plus Division, Minutes and Average Rating.
 
-### 6. Take your first screenshots
+### 6. Read your save
+
+Save your game in FM, then tell your assistant:
+
+> Update from my save.
+
+It reads your squad and staff out of the save file, scores them, and opens your pages in your web browser. Do this
+whenever you want your pages brought up to date: just save the game first.
+
+If you'd rather not read the save file, or it can't be read, screenshots do the same job:
 
 1. In FM, open your **squad** screen with the outfield view.
 2. Screenshot it. Scroll down and screenshot again until you've covered every player.
@@ -157,14 +170,16 @@ It reads them, saves the players, and opens your pages in your web browser.
 
 ## Using it
 
-Whenever you want to add players, screenshot them in FM and tell your assistant **"new screenshots"**. For example:
+Whenever you want your squad and staff pages brought up to date, save the game and tell your assistant
+**"update from my save"**. For players who aren't at your club, screenshot them in FM and say **"new screenshots"**.
+For example:
 
 - **A transfer search:** screenshot the results to compare everyone it finds.
 - **A shortlist or scouting list.**
 - **A whole league:** screenshot every player in a division, with Minutes, Average Rating and Division showing.
   That fills the charts page, so you can see how your squad compares.
 - **Staff searches:** coaches, scouts, physios and so on, with the staff view.
-- **Your squad again later:** re-screenshot it every few months of game time to see who's improving.
+- **Your squad again later:** update from your save every few months of game time to see who's improving.
 
 The assistant tells you about notable players each time. It's worth checking a few numbers against FM
 now and then, because a misread number is the most likely mistake.
@@ -236,7 +251,7 @@ cd Documents/fm-scoring
 claude
 ```
 
-Use `codex` instead of `claude` if that's your assistant. Then carry on with "new screenshots".
+Use `codex` instead of `claude` if that's your assistant. Then carry on with "update from my save" or "new screenshots".
 
 ### Starting another save
 

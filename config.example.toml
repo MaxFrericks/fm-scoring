@@ -3,3 +3,4 @@
 active_save = "my-club"            # saves/<this>/save.toml
 screenshots_dir = "~/Desktop"      # where your screenshots are saved (Windows: "~/Pictures/Screenshots")
 currency = "£"                     # the money symbol FM shows
+# fmsave = "uvx --python 3.12 fmsave"  # how `score.py import` runs fmsave, if it isn't `fmsave` or `uvx` on your PATH
