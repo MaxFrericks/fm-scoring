@@ -108,9 +108,9 @@ __THEME__
 const PAGE = "__PAGE__", SITE = __SITE__, PAGES = SITE.pages;
 const TABLE = !["grid", "filters", "staff_filters", "settings", "help"].includes(PAGE);  // the other pages are tiles, with no table to filter or move around
 const RAW = __DATA__;
-// The scouting and recruit pages carry their search (query) with the rows; every other table page is just rows
-const SEARCH = RAW && !Array.isArray(RAW) && "rows" in RAW ? RAW : null;
-const DATA = SEARCH ? SEARCH.rows : RAW;
+// The scouting and recruit pages carry searches (one per role or position, each with its query and rows); every other table page is just rows
+const SEARCHES = RAW && !Array.isArray(RAW) && "searches" in RAW ? RAW.searches : null;
+let SEARCH = null, DATA = RAW;
 const t = k => SITE.t[k] ?? k;  // the chrome's strings, in config.toml's language (lang.py)
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 // Sidebar: the game date and the club's headline numbers (from the save file); pages served by `score.py serve` reload on a rebuild
@@ -136,15 +136,27 @@ const ALIASES = { lefty: "left", leftfoot: "left", player: "name", pos: "best", 
 const STORE = "fm:__SAVE__:" + PAGE;
 const input = document.getElementById("filter"), help = document.getElementById("help"), detail = document.getElementById("detail");
 let sortKey = COLS.some(c => c.key === "vsAge") ? "vsAge" : COLS.find(c => c.num && c.fmt)?.key, dir = -1, cur = { r: 0, c: 0 }, view = [];
+let picked = null;  // the search shown on a search page (its key)
 
 try {
   const s = JSON.parse(localStorage.getItem(STORE) || "{}");
   if (s.sortKey && COLS.some(c => c.key === s.sortKey)) ({ sortKey, dir } = s);
   input.value = s.q || "";
+  picked = s.picked ?? null;
 } catch (e) {}
-if (SEARCH?.sort && COLS.some(c => c.key === SEARCH.sort)) { sortKey = SEARCH.sort; dir = -1; }  // a search page sorts by what was asked
 function save() {
-  try { localStorage.setItem(STORE, JSON.stringify({ sortKey, dir, q: input.value })); } catch (e) {}
+  try { localStorage.setItem(STORE, JSON.stringify({ sortKey, dir, q: input.value, picked })); } catch (e) {}
+}
+// Search pages: pick one search (a role or position); its rows become the table, sorted by what was asked
+function pickSearch(key) {
+  SEARCH = SEARCHES.find(s => s.key === key) || SEARCHES[0];
+  if (!SEARCH) return;
+  picked = SEARCH.key; DATA = SEARCH.rows; cur = { r: 0, c: 0 };
+  if (COLS.some(c => c.key === SEARCH.sort)) { sortKey = SEARCH.sort; dir = -1; }
+  const q = SEARCH.query, chips = Object.entries(q).map(([k, v]) => `<span class="chip">${esc(k.replace("_", " "))}: ${esc(Array.isArray(v) ? v.join(", ") : v)}</span>`).join("");
+  document.getElementById("note").innerHTML = `<div class="pick">${SEARCHES.map(s => `<button class="${s.key === SEARCH.key ? "on" : ""}" data-key="${esc(s.key)}">${esc(s.label)}</button>`).join("")}</div>` +
+    `${t("search")}: ${chips}`;
+  render();
 }
 
 function tier(v, [lo, hi]) {
@@ -445,12 +457,12 @@ document.getElementById("helphint").addEventListener("click", e => { e.preventDe
     .map(([k, v]) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`).join("") + `<tr><td colspan="2" class="sub">${K.syntax}</td></tr>`;
 }
 input.placeholder = `/ ${t("filter")}  ${PAGE.endsWith("staff") || PAGE === "recruit" ? t("staffFilterHint") : t("filterHint")}`;
-// Search pages: what was asked
-if (SEARCH) {
-  const q = SEARCH.query, chips = q ? Object.entries(q).map(([k, v]) => `<span class="chip">${esc(k.replace("_", " "))}: ${esc(Array.isArray(v) ? v.join(", ") : v)}</span>`).join("") : "";
-  document.getElementById("note").innerHTML = q ? `${t("search")}: ${chips}` : t("noSearch");
+// Search pages: the searches as buttons, the picked one's query, its rows
+if (SEARCHES) {
+  document.getElementById("note").addEventListener("click", e => { const b = e.target.closest("button[data-key]"); if (b) pickSearch(b.dataset.key); });
+  if (SEARCHES.length) pickSearch(picked); else { DATA = []; document.getElementById("note").textContent = t("noSearch"); render(); }
 }
-if (PAGE === "filters" || PAGE === "staff_filters") renderFilters(); else if (PAGE === "grid") renderGrid(); else if (PAGE === "settings") renderSettings(); else if (PAGE === "help") renderHelp(); else render();
+else if (PAGE === "filters" || PAGE === "staff_filters") renderFilters(); else if (PAGE === "grid") renderGrid(); else if (PAGE === "settings") renderSettings(); else if (PAGE === "help") renderHelp(); else render();
 </script>
 </body>
 </html>

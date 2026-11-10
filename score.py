@@ -180,15 +180,20 @@ def recruit_cols(roles):
 
 
 def load_queries(save_dir):
-    """saves/<save>/queries.json: the latest scouting and recruit searches, kept so every build shows them."""
+    """saves/<save>/queries.json: the scouting and recruit searches, in the order asked, kept so every build shows them.
+    One per role (recruit) or position (scout): a new search for the same one replaces it."""
     path = save_dir / "queries.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    queries = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    return {kind: [q] if isinstance(q, dict) else q for kind, q in queries.items()}
 
 
-def save_query(save, kind, query):
+def save_query(save, kind, query, key):
     path = ROOT / "saves" / save / "queries.json"
     queries = load_queries(path.parent)
-    queries[kind] = {k: v for k, v in query.items() if v not in (None, [], False)}
+    query = {k: v for k, v in query.items() if v not in (None, [], False)}
+    old = queries.get(kind, [])
+    i = next((i for i, q in enumerate(old) if q.get(key) == query[key]), len(old))  # the same role/position: replaced in place
+    queries[kind] = [*old[:i], query, *old[i + 1:]]
     path.write_text(json.dumps(queries, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -432,10 +437,13 @@ def build(save, config):
     queries = load_queries(save_dir)
     known = set(players) | set(cfg.get("scouted", []))  # players whose attributes FM has shown the user (see world.py)
     check_listed(cfg, "known_leagues", set(world.league_names.values()) if world else set(), "names leagues not in save.toml's competitions")
-    recruit = world.recruit(w, queries["recruit"], convert, staff_word) if world and queries.get("recruit") else []
-    scouting = world.scout(w, cfg, queries["scout"], convert, known) if world and queries.get("scout") else []
-    for r in recruit + scouting:
-        r["nation"] = T["nations"].get(r["nation"], r["nation"])  # nation names in the page's language
+    recruit = [{"key": q["role"], "label": w.get("staff_names", {}).get(q["role"], q["role"]), "query": q, "sort": q["role"],
+                "rows": world.recruit(w, q, convert, staff_word)} for q in queries.get("recruit", [])] if world else []
+    scouting = [{"key": q["pos"], "label": q["pos"], "query": q, "sort": q.get("sort", "rating"),
+                 "rows": world.scout(w, cfg, q, convert, known)} for q in queries.get("scout", [])] if world else []
+    for s in recruit + scouting:
+        for r in s["rows"]:
+            r["nation"] = T["nations"].get(r["nation"], r["nation"])  # nation names in the page's language
     league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
     kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
                       lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week")), T["header"]) if world else []
@@ -444,14 +452,14 @@ def build(save, config):
         "squad": (player_cols(w, False), squad),
         "grid": (player_cols(w, False), grid(squad, w, cfg, intake)),  # the columns are for the history overlay
         "filters": ([], filters(squad, w)),
-        "scouting": (scout_cols(w), {"query": queries.get("scout"), "rows": scouting, "sort": (queries.get("scout") or {}).get("sort", "rating")}),
+        "scouting": (scout_cols(w), {"searches": scouting}),
         "elsewhere": (player_cols(w, True), [r for r in rows if r["club"] != managed]),
         # a screenshot of just names (e.g. a shortlist) picks players already observed; otherwise the batch's files
         "last": (player_cols(w, True), [r for r in rows if r["name"] in last_names] if last_names
                  else [r for r in rows if players[r["name"]]["files"] & last_batch]),
         "charts": ([], charts(rows + league, squad, w, cfg)),
         "staff": (staff_cols(roles), staff_rows),
-        "recruit": (recruit_cols(roles), {"query": queries.get("recruit"), "rows": recruit, "sort": (queries.get("recruit") or {}).get("role")}),
+        "recruit": (recruit_cols(roles), {"searches": recruit}),
         # the batch's files, plus anyone named in last_staff_names
         "last_staff": (staff_cols(roles), [r for r in staff_rows
                                            if staff[r["name"]]["files"] & last_staff or r["name"] in last_staff_names]),
@@ -495,7 +503,7 @@ def write_pages(save, config, cfg, pages, kpis=()):
                      .replace("__HOME__", home).replace("__PAGE__", page).replace("__SITE__", site)
                      .replace("__COLS__", json.dumps(columns, ensure_ascii=False)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
-    print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d['rows'] if isinstance(d, dict) else d)})" for p, (_, d) in pages.items()
+    print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({sum(len(s['rows']) for s in d['searches']) if isinstance(d, dict) else len(d)})" for p, (_, d) in pages.items()
                                                  if p not in ("grid", "filters", "charts", "staff_filters", "settings", "help")))
     return out
 
@@ -867,10 +875,10 @@ def main():
     if args.command == "import":
         import_save(save, config, args.file)
     if args.command == "recruit":
-        save_query(save, "recruit", {"role": args.role, "nation": args.nation, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top})
+        save_query(save, "recruit", {"role": args.role, "nation": args.nation, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top}, "role")
     if args.command == "scout":
         save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
-                                   "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top})
+                                   "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top}, "pos")
     cfg, pages, kpis = build(save, config)
     out = write_pages(save, config, cfg, pages, kpis)
     if args.open:
