@@ -272,6 +272,7 @@ Motivating = 1
 "Tactical Knowledge" = 1
 
 [staff.Scout]  # Scout
+Adaptability = 4
 "Judging Player Ability" = 4
 "Judging Player Potential" = 4
 "Tactical Knowledge" = 2

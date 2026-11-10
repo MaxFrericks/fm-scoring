@@ -49,10 +49,10 @@ Checked against FM27 staff profiles (31/3/2029, an FM27 save).
 - **Coach groups.** The grid has one general Coach column. These weights split it into FM's nine training groups: each group gets its two coaching attributes at 4, plus the coach mentals and Working With Youngsters.
 - **Training only.** The coach groups leave out the Judging, Negotiating and Tactical Knowledge attributes. Those cover a coach's player reports, not their training.
 - **Left out.** Business is hidden, so it's left out of the Director of Football weights.
+- **Scout adaptability.** FM27 marks Adaptability key for scouts (how fast they learn a new nation's players), so it weighs 4, like the two Judging attributes. FM marks it key for no other role, so no other role uses it.
 - **Not scored.** Hidden personality isn't on this view. FM Arena testing suggests it matters more than any attribute for a Head of Youth Development: their Professionalism shifts the intake's. Check it by hand.
 
 Where the weights still disagree with FM27's key attributes (candidates to amend):
-- Scout: FM marks Adaptability key; it has weight 0 here.
 - Set Piece Coach: FM marks Tactical Knowledge key; it has weight 0 here.
 - Coach groups: FM's generic Coach key list leaves out Possession, Set Pieces, Goalkeeping and Working With Youngsters.
 - Fitness Coach: FM doesn't mark Determination key; it has weight 2 here.
