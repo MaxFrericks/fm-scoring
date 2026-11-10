@@ -856,6 +856,7 @@ def main():
     rp.add_argument("--max-wage", type=money, metavar="MONEY", help="as FM shows wages, e.g. 4K")
     rp.add_argument("--max-age", type=int)
     rp.add_argument("--top", type=int, help="how many to show (default 50)")
+    rp.add_argument("--other-game", action="store_true", help="include staff at the other game's clubs (women's teams, for a men's club)")
     sc = sub.add_parser("scout", help="search every player in the save for a position: the scouting page")
     sc.add_argument("pos", help="a weights position (CB, 9...) or FM codes (DC, DM/MC)")
     sc.add_argument("--max-age", type=int)
@@ -871,6 +872,7 @@ def main():
     pp.add_argument("--tier", action="append", dest="tiers", type=money, metavar="MONEY", help="a wage band ceiling as FM shows wages, repeatable (default 1.5K 2.5K 4K 6K)")
     pp.add_argument("--role", action="append", dest="roles", metavar="ROLE", help="repeatable; default: every role but Mgr")
     pp.add_argument("--top", type=int, help="candidates per band (default 3)")
+    pp.add_argument("--other-game", action="store_true", help="include staff at the other game's clubs (women's teams, for a men's club)")
     sub.add_parser("leagues", help="list the save's leagues, to name them in save.toml's competitions")
     sv = sub.add_parser("serve", help="serve the pages on localhost and rebuild whenever FM saves")
     sv.add_argument("--port", type=int, default=8765)
@@ -892,9 +894,10 @@ def main():
     if args.command == "import":
         import_save(save, config, args.file)
     if args.command == "recruit":
-        save_query(save, "recruit", {"role": args.role, "nations": args.nations, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top}, "role")
+        save_query(save, "recruit", {"role": args.role, "nations": args.nations, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top,
+                                     "other_game": args.other_game}, "role")
     if args.command == "plan":
-        save_query(save, "plan", {"nations": args.nations, "tiers": args.tiers, "roles": args.roles, "top": args.top, "kind": "plan"}, "kind")
+        save_query(save, "plan", {"nations": args.nations, "tiers": args.tiers, "roles": args.roles, "top": args.top, "other_game": args.other_game, "kind": "plan"}, "kind")
     if args.command == "scout":
         save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
                                    "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top}, "pos")

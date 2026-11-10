@@ -102,8 +102,10 @@ The user asks in words; the agent turns it into a search and the page shows the 
   minutes, goals, assists, xg, age, value, wage, score; `--top` (100).
 - **The staff plan** ("what does more money buy per role"): `python3 score.py plan --nation mine --nation Germany --tier 1.5K --tier 2.5K --tier 4K --tier 6K --open`
   writes the **plan** page: per role (`--role`, default all but Mgr), the club's best now and the top `--top` (3) candidates in each wage
-  band, so the user can decide per role where extra money is worth it. Staff of the other game's clubs (women's teams, for a men's club) are
-  included and marked, since FM lets them move (checked in FM27: the contract screen opens; willingness varies). Player searches stay within the game.
+  band, so the user can decide per role where extra money is worth it.
+- **The other game:** FM27 holds men's and women's clubs (often under the same name, e.g. two VfL Wolfsburgs). Searches leave out staff
+  and players at the other game's clubs. FM does let staff move between them (the contract screen opens), but the user chose not to
+  count on it; `recruit` and `plan` take `--other-game` to include them, marked "(women's team)". The save only knows someone's current club.
 - **The honesty rule** (`world.py`): the save holds everyone's true attributes, but a player's attributes are used only when FM has shown them
   to the user: at the managed club, named in save.toml's `scouted` (the user says "I've scouted X and Y"), seen in a screenshot, or in a league
   in `known_leagues` (the user checks in FM whether other clubs' players there show exact attributes, not ranges). Everyone else shows what FM

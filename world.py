@@ -194,6 +194,8 @@ class World:
         for s in self.staff:
             if s.get("is_human_manager") == "true" or s["club_name"] == self.managed:
                 continue
+            if club_gender.get(s["club_uid"], self.gender) != self.gender and not q.get("other_game"):
+                continue  # staff at the other game's clubs (women's teams, for a men's club): only when asked for
             if nations and s["nation_id"] not in nations:
                 continue
             if q.get("job") and fm_name(s["job"]).lower() != q["job"].lower():
@@ -226,7 +228,7 @@ class World:
         roles = q.get("roles") or [r for r in w["staff"] if r != "Mgr"]
         out = []
         for role in roles:
-            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "top": 10 ** 6}, convert, staff_word)
+            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "other_game": q.get("other_game"), "top": 10 ** 6}, convert, staff_word)
             bands, low = [], 0
             for cap in tiers:
                 band = [r for r in rows if r["wage"] is not None and low < r["wage"] <= cap][:q.get("top") or 3]
