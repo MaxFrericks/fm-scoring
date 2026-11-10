@@ -37,7 +37,7 @@ ROOT = Path(__file__).parent
 CONFIG = ROOT / "config.toml"
 # The dashboard's tabs, in groups; each page's key is its position in KEYS
 GROUPS = {"squad": ["squad", "grid", "filters"], "scouting": ["scouting", "charts", "elsewhere", "last"],
-          "staff": ["staff", "recruit", "last_staff", "staff_filters"], "settings": ["settings", "help"]}
+          "staff": ["staff", "recruit", "plan", "last_staff", "staff_filters"], "settings": ["settings", "help"]}
 PAGES = [p for ps in GROUPS.values() for p in ps]
 KEYS = "1234567890-="  # the first twelve pages get a key
 SCREENSHOT_PAGES = ("elsewhere", "last", "last_staff")  # hidden from the sidebar while empty (a save-file user never sees them)
@@ -441,8 +441,15 @@ def build(save, config):
                 "rows": world.recruit(w, q, convert, staff_word)} for q in queries.get("recruit", [])] if world else []
     scouting = [{"key": q["pos"], "label": q["pos"], "query": q, "sort": q.get("sort", "rating"),
                  "rows": world.scout(w, cfg, q, convert, known)} for q in queries.get("scout", [])] if world else []
-    for s in recruit + scouting:
-        for r in s["rows"]:
+    # the staff plan: the club's best per role (by their latest staff screen) next to the market by wage band
+    club_scores = {r["name"]: {**{k: r[k] for k in roles if r.get(k) is not None}, "wage": None} for r in club_staff}
+    if world:
+        for s in world.staff:
+            if s["name"] in club_scores and s["wage"]:
+                club_scores[s["name"]]["wage"] = round(convert(float(s["wage"]), True))
+    plan = world.staff_plan(w, queries["plan"][0], convert, staff_word, club_scores) if world and queries.get("plan") else None
+    for s in recruit + scouting + (plan["roles"] if plan else []):
+        for r in (s["rows"] if "rows" in s else [c for b in s["bands"] for c in b]):
             for k in ("nation", "clubNation"):  # nation names in the page's language
                 if r.get(k):
                     r[k] = T["nations"].get(r[k], r[k])
@@ -462,6 +469,7 @@ def build(save, config):
         "charts": ([], charts(rows + league, squad, w, cfg)),
         "staff": (staff_cols(roles), staff_rows),
         "recruit": (recruit_cols(roles), {"searches": recruit}),
+        "plan": ([], plan),
         # the batch's files, plus anyone named in last_staff_names
         "last_staff": (staff_cols(roles), [r for r in staff_rows
                                            if staff[r["name"]]["files"] & last_staff or r["name"] in last_staff_names]),
@@ -506,7 +514,7 @@ def write_pages(save, config, cfg, pages, kpis=()):
                      .replace("__COLS__", json.dumps(columns, ensure_ascii=False)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
     print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({sum(len(s['rows']) for s in d['searches']) if isinstance(d, dict) else len(d)})" for p, (_, d) in pages.items()
-                                                 if p not in ("grid", "filters", "charts", "staff_filters", "settings", "help")))
+                                                 if p not in ("grid", "filters", "charts", "staff_filters", "settings", "help", "plan")))
     return out
 
 
@@ -856,10 +864,15 @@ def main():
     sc.add_argument("--min-minutes", type=int)
     sc.add_argument("--sort", help="rating (default), minutes, goals, assists, xg, age, value, wage, score")
     sc.add_argument("--top", type=int, help="how many to show (default 100)")
+    pp = sub.add_parser("plan", help="the staff plan page: per role, the top candidates in each wage band")
+    pp.add_argument("--nation", action="append", dest="nations", metavar="NAME", help="repeatable; default: everyone")
+    pp.add_argument("--tier", action="append", dest="tiers", type=money, metavar="MONEY", help="a wage band ceiling as FM shows wages, repeatable (default 1.5K 2.5K 4K 6K)")
+    pp.add_argument("--role", action="append", dest="roles", metavar="ROLE", help="repeatable; default: every role but Mgr")
+    pp.add_argument("--top", type=int, help="candidates per band (default 3)")
     sub.add_parser("leagues", help="list the save's leagues, to name them in save.toml's competitions")
     sv = sub.add_parser("serve", help="serve the pages on localhost and rebuild whenever FM saves")
     sv.add_argument("--port", type=int, default=8765)
-    for p, page in ((ip, "squad"), (rp, "recruit"), (sc, "scouting")):
+    for p, page in ((ip, "squad"), (rp, "recruit"), (sc, "scouting"), (pp, "plan")):
         p.add_argument("--open", nargs="?", const=page, choices=PAGES, metavar="PAGE", default=argparse.SUPPRESS,
                        help=f"open a page afterwards (default: {page})")  # so `import --open` works as well as `--open import`
     args = ap.parse_args()
@@ -878,6 +891,8 @@ def main():
         import_save(save, config, args.file)
     if args.command == "recruit":
         save_query(save, "recruit", {"role": args.role, "nations": args.nations, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top}, "role")
+    if args.command == "plan":
+        save_query(save, "plan", {"nations": args.nations, "tiers": args.tiers, "roles": args.roles, "top": args.top, "kind": "plan"}, "kind")
     if args.command == "scout":
         save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
                                    "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top}, "pos")

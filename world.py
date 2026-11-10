@@ -189,10 +189,11 @@ class World:
             raise SystemExit(f"No staff role {role!r} in the weights file; roles: {', '.join(roles)}")
         nations = {self.nation_id(n) for n in (q.get("nations") or ([q["nation"]] if q.get("nation") else []))}
         club_nation = {c["uid"]: self.nation(c["nation_id"]) for c in self.clubs}
+        club_gender = {c["uid"]: c.get("gender", self.gender) for c in self.clubs}
         rows = []
         for s in self.staff:
-            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed:
-                continue
+            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed or club_gender.get(s["club_uid"], self.gender) != self.gender:
+                continue  # staff in the other game (men's / women's) are left out, as for players
             if nations and s["nation_id"] not in nations:
                 continue
             if q.get("job") and fm_name(s["job"]).lower() != q["job"].lower():
@@ -216,6 +217,24 @@ class World:
         for r in rows:
             r["wage"] = round(r["wage"]) if r["wage"] is not None else None
         return rows[:q.get("top") or 50]
+
+    def staff_plan(self, w, q, convert, staff_word, club_staff):
+        """Per role, the top candidates in each wage band (q: nations, tiers = band ceilings as FM shows wages, top, roles),
+        next to the club's best at that role (club_staff: name -> {role: score, "wage": ...}), so the user sees what more money buys."""
+        tiers = sorted(q.get("tiers") or [1500, 2500, 4000, 6000])
+        roles = q.get("roles") or [r for r in w["staff"] if r != "Mgr"]
+        out = []
+        for role in roles:
+            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "top": 10 ** 6}, convert, staff_word)
+            bands, low = [], 0
+            for cap in tiers:
+                band = [r for r in rows if r["wage"] is not None and low < r["wage"] <= cap][:q.get("top") or 3]
+                bands.append([{k: r[k] for k in ("name", "club", "clubNation", "nation", "age", "job", "wage", "contract")} | {"score": r[role]} for r in band])
+                low = cap
+            mine = max(((n, s) for n, s in club_staff.items() if role in s), key=lambda x: x[1][role], default=None)
+            out.append({"role": role, "name": w.get("staff_names", {}).get(role, role),
+                        "current": {"name": mine[0], "score": mine[1][role], "wage": mine[1].get("wage")} if mine else None, "bands": bands})
+        return {"tiers": tiers, "roles": out}
 
     def known(self, p, cfg, known_names):
         """Whether FM shows the user this player's attributes (see the module docstring)."""

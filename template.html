@@ -40,6 +40,14 @@ __THEME__
   .tiles td.search { color: var(--cyan); font-weight: 600; }
   .tiles tr.minor td { opacity: .45; }
   .tiles td.wrap { white-space: normal; }
+  /* Staff plan: one tile per role, a column per wage band */
+  #main.plan { grid-template-columns: minmax(0, 1fr); }
+  #main.plan th { position: static; cursor: default; }
+  #main.plan td { vertical-align: top; white-space: normal; min-width: 150px; }
+  #main.plan td:first-child { border-right: 1px solid var(--line); }
+  #main.plan .cand { margin: 2px 0 6px; line-height: 1.4; }
+  #main.plan .cn { font-weight: 500; }
+  #main.plan .sub { font-size: 11.5px; }
   /* Help page: what to say, as question and answer */
   #main.help { background: none; border: 0; padding: 0; display: grid; gap: 12px; }
   #main.help td { white-space: normal; vertical-align: top; }
@@ -106,7 +114,7 @@ __THEME__
 </div></div>
 <script>
 const PAGE = "__PAGE__", SITE = __SITE__, PAGES = SITE.pages;
-const TABLE = !["grid", "filters", "staff_filters", "settings", "help"].includes(PAGE);  // the other pages are tiles, with no table to filter or move around
+const TABLE = !["grid", "filters", "staff_filters", "settings", "help", "plan"].includes(PAGE);  // the other pages are tiles, with no table to filter or move around
 const RAW = __DATA__;
 // The scouting and recruit pages carry searches (one per role or position, each with its query and rows); every other table page is just rows
 const SEARCHES = RAW && !Array.isArray(RAW) && "searches" in RAW ? RAW.searches : null;
@@ -412,6 +420,24 @@ function renderSettings() {
     <table>${Object.entries(f.values).map(([k, v]) => `<tr><td class="text">${esc(k)}</td><td class="wrap">${esc(val(v))}</td></tr>`).join("")}</table>
   </div>`).join("") + `<div class="sub">${t("settingsNote")}</div>`;
 }
+// Staff plan page: DATA = { tiers: [ceilings], roles: [{ role, name, current: { name, score, wage }, bands: [[candidate...] per tier] }] } (world.staff_plan)
+function renderPlan() {
+  input.style.visibility = "hidden";
+  const main = document.getElementById("main");
+  main.className = "tiles plan";
+  if (!DATA) { main.innerHTML = `<div class="sub">${t("noPlan")}</div>`; return; }
+  const band = (i) => `${i ? FMT.money(DATA.tiers[i - 1]) + "–" : t("upTo") + " "}${FMT.money(DATA.tiers[i])}`;
+  const cand = c => c ? `<div class="cand"><div class="cn">${esc(c.name)} <span class="num ${tier(c.score, RANGE.f1)}">${FMT.f1(c.score)}</span></div>` +
+    `<div class="sub">${esc(c.club)}${c.clubNation && c.clubNation !== c.nation ? ` (${esc(c.clubNation)})` : ""} · ${c.age ?? "–"} · ${esc(c.job || "–")}</div>` +
+    `<div class="sub mono">${FMT.money(c.wage)} ${SITE.wagePeriod} · ${c.contract || "–"}</div></div>` : `<div class="sub">–</div>`;
+  const n = Math.max(1, ...DATA.roles.flatMap(r => r.bands.map(b => b.length)));
+  main.innerHTML = DATA.roles.map(r => `<div class="tile">
+    <div class="ttitle">${esc(r.role)} <span class="sub">· ${esc(r.name)}</span></div>
+    <table><thead><tr><th>${t("now")}</th>${DATA.tiers.map((_, i) => `<th>${band(i)}</th>`).join("")}</tr></thead>
+      <tbody>${Array.from({ length: n }, (_, k) => `<tr><td>${k === 0 ? (r.current ? `<div class="cand"><div class="cn">${esc(r.current.name)} <span class="num ${tier(r.current.score, RANGE.f1)}">${FMT.f1(r.current.score)}</span></div>` +
+          `<div class="sub mono">${r.current.wage != null ? FMT.money(r.current.wage) + " " + SITE.wagePeriod : "–"}</div></div>` : `<div class="sub">–</div>`) : ""}</td>` +
+        r.bands.map(b => `<td>${cand(b[k])}</td>`).join("") + "</tr>").join("")}</tbody></table></div>`).join("");
+}
 // Help page: DATA = [{ title, rows: [[what to say, what happens]] }] (lang.py)
 function renderHelp() {
   input.style.visibility = "hidden";
@@ -462,7 +488,7 @@ if (SEARCHES) {
   document.getElementById("note").addEventListener("click", e => { const b = e.target.closest("button[data-key]"); if (b) pickSearch(b.dataset.key); });
   if (SEARCHES.length) pickSearch(picked); else { DATA = []; document.getElementById("note").textContent = t("noSearch"); render(); }
 }
-else if (PAGE === "filters" || PAGE === "staff_filters") renderFilters(); else if (PAGE === "grid") renderGrid(); else if (PAGE === "settings") renderSettings(); else if (PAGE === "help") renderHelp(); else render();
+else if (PAGE === "filters" || PAGE === "staff_filters") renderFilters(); else if (PAGE === "grid") renderGrid(); else if (PAGE === "settings") renderSettings(); else if (PAGE === "help") renderHelp(); else if (PAGE === "plan") renderPlan(); else render();
 </script>
 </body>
 </html>
