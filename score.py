@@ -589,7 +589,9 @@ def fm_money(value, currency, period=None):
     for unit, size in (("M", 1e6), ("K", 1e3)):
         if v >= size:
             x = v / size
-            text = (f"{x:.2f}" if x < 10 else f"{x:.1f}" if x < 100 else f"{x:.0f}").rstrip("0").rstrip(".")
+            text = f"{x:.2f}" if x < 10 else f"{x:.1f}" if x < 100 else f"{x:.0f}"
+            if "." in text:
+                text = text.rstrip("0").rstrip(".")  # 8.25, 1.6, 2.5: trailing zeros only after the point (170 stays 170)
             return f"{currency}{text}{unit}{suffix}"
     return f"{currency}{v:.0f}{suffix}"
 
