@@ -4,20 +4,33 @@ Scores Football Manager players on weighted attributes and tracks them over game
 FM has no data export, so there are two ways in: `score.py import` reads the save file itself (the managed club's
 squad and staff, via the `fmsave` package), and for everything else (transfer searches, other clubs, whole leagues)
 the user takes screenshots of in-game player tables and an agent transcribes them to CSV. Both write the same
-observation files. `score.py` turns those into ten pages per save (keys 1–9, then 0):
+observation files. `score.py` turns those into a dashboard of twelve pages per save, in four tab groups
+(keys `1`–`9`, `0`, `-`, `=` in this order; `GROUPS` in `score.py`):
 
+**Squad**
 1. **squad**: the club the user manages
 2. **grid**: the squad by formation slot (save.toml's `grid`): starter, backup, then third (to sell or loan out) by position score, then the
    youth (`youth_age` and under) by vs Age, so the pipeline and who's blocking the next intake show at a glance
-3. **elsewhere**: every other player they've looked at
-4. **last**: just the players from the most recent set of screenshots (e.g. one transfer search)
-5. **filters**: per position, the squad's best players and suggested minimums for FM's player search
-6. **charts**: players with a match rating (a league-wide search) by position: role scores, score vs wage,
-   score vs average rating, and Acceleration, Pace, Jumping Reach or Agility (a toggle; Agility is keepers only) by position and vs rating, with the squad overlaid
-7. **staff**: every staff member observed, scored for each role (manager, coach groups, scout, physio…)
-8. **last_staff**: just the staff from the most recent set of staff screenshots
-9. **staff_filters**: per staff role, the club's best staff and suggested minimums (as FM's words) for FM's staff search
-0. **settings**: what's in `config.toml` and the save's `save.toml`
+3. **filters**: per position, the squad's best players and suggested minimums for FM's player search
+
+**Scouting**
+4. **scouting**: the latest `score.py scout` search over every player in the save (see "Searching the save")
+5. **elsewhere**: every other player they've looked at (screenshots)
+6. **last**: just the players from the most recent set of screenshots (e.g. one transfer search)
+7. **charts** (tab "league"): players with a match rating by position: role scores, score vs wage,
+   score vs average rating, and Acceleration, Pace, Jumping Reach or Agility (a toggle; Agility is keepers only) by position and vs rating, with the squad overlaid.
+   Players come from league-wide screenshots and from the save's `known_leagues`
+
+**Staff**
+8. **staff**: every staff member observed, scored for each role (manager, coach groups, scout, physio…)
+9. **recruit**: the latest `score.py recruit` search over every staff member in the save
+0. **last_staff**: just the staff from the most recent set of staff screenshots
+-. **staff_filters**: per staff role, the club's best staff and suggested minimums (as FM's words) for FM's staff search
+
+**Settings**
+=. **settings**: what's in `config.toml` and the save's `save.toml`
+
+The header on every page shows the game date and, from the save file, the club's balance, transfer budget and wage bill vs budget.
 
 Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on Windows it may be `python` or `py`).
 
@@ -26,13 +39,16 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 | Path | Purpose |
 |---|---|
 | `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`, and for `score.py import`: `money_rate` (the save stores money in pounds; × this = what FM shows, 1 for £), `wage_period` (`week` or `month`, as FM shows wages), `fmsave` (the command that runs fmsave, if it isn't `fmsave` or `uvx` on PATH). Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
-| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `save_file` (the `.fm` file `score.py import` reads), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
+| `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `save_file` (the `.fm` file `score.py import` reads), `competitions` (league name → id, `score.py leagues` lists them), `nations` (nation name → id, for ones `world.py`'s landmark clubs don't cover), `known_leagues` (leagues FM shows the user full attributes for), `scouted` (players the user's scouts have reported on), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
 | `saves/<save>/obs/*.csv` | Observations: `<YYYY-MM-DD>_<source>_<view>.csv`, one per screenshot set. Append-only. |
+| `saves/<save>/cache/` | The whole save as CSV (players, staff, clubs, fixtures, season stats, finances), rewritten by every `score.py import`. Gitignored in the saves repo. |
+| `saves/<save>/queries.json` | The latest `scout` and `recruit` searches, so every build shows them. |
+| `world.py` | The save's world from the cache: which league each club plays in, nation names, the recruit and scout searches, the honesty rule. |
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
 | `weights/<name>.toml` | Position weights (`[outfield.*]`, `[gk]`), age benchmarks, and staff scoring: `[staff_words]` (FM's words → numbers) and `[staff.<role>]` (the role's column label, then attribute weights). |
 | `weights/<name>_staff.md` | Notes on the staff weights: sources, FM27 key attributes, calibration. |
 | `views/`, `player search filters/`, `staff search filters/`, `schedules/` | FM27 views, search filters and training schedules (`.fmf`), named like FM's own folders. |
-| `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup), `screenshots` (list new ones) and `import` (read the save file). Stdlib only; `import` runs the `fmsave` command. |
+| `score.py` | `python3 score.py [--save S] [--open PAGE]` → `out/<save>/*.html`. Also `init` (first-time setup), `screenshots` (list new ones), `import` (read the save file), `scout` / `recruit` (search the save), `leagues` (list them) and `serve` (localhost, rebuilds when FM saves). Stdlib only; `import` runs the `fmsave` command. |
 | `template.html` | Every page but charts. Its `?` overlay is the reference for keys and filter syntax. |
 | `charts.html` | Page 6: hand-drawn SVG charts. |
 | `theme.css` | Omarchy / Tokyo Night theme, inlined into every page. |
@@ -64,6 +80,32 @@ The user says something like "update from my save", "import my save" or "refresh
 - fmsave calls FM27 builds it hasn't seen "unverified" and borrows the nearest layout; attributes, feet and wages
   have been checked against the game. `FOOT_WORDS`: 20 Very Strong, 15–19 Strong, 12–14 Fairly Strong,
   9–11 Reasonable, 5–8 Weak, 1–4 Very Weak.
+
+## Searching the save
+
+The user asks in words; the agent turns it into a search and the page shows the result (the search is kept in
+`queries.json`, so later builds show it too). Both need a cache from `score.py import`.
+
+- **Staff** ("find me an assistant manager, Dutch, under 4K a month"): `python3 score.py recruit AM --nation mine --max-wage 4K --open`.
+  `ROLE` is a `[staff.<label>]` from the weights file; `--nation` a name (`world.py`'s landmarks or save.toml's `nations`) or `mine`;
+  `--job` their job as FM names it; `--max-wage` as FM shows wages; `--max-age`; `--top` (50). Staff at the managed club are left out.
+  FM shows every staff member's attributes, so this is as honest as FM's own staff search. The save holds no club-less staff.
+- **Players** ("find me a left back, 24 or under, in the Eredivisie, under 500K"): `python3 score.py scout "WB/6" --max-age 24 --league Eredivisie --max-value 500K --open`.
+  `POS` is a weights position (`[fm_positions]` maps it to FM's codes) or FM codes (`DL,WBL`); `--league` (repeatable) a name from save.toml's
+  `competitions` or `#id`; `--nation` (repeatable); `--max-value`, `--max-wage` as FM shows them; `--min-minutes`; `--sort` rating (default),
+  minutes, goals, assists, xg, age, value, wage, score; `--top` (100).
+- **The honesty rule** (`world.py`): the save holds everyone's true attributes, but a player's attributes are used only when FM has shown them
+  to the user: at the managed club, named in save.toml's `scouted` (the user says "I've scouted X and Y"), seen in a screenshot, or in a league
+  in `known_leagues` (the user checks in FM whether other clubs' players there show exact attributes, not ranges). Everyone else shows what FM
+  shows anyone: age, club, positions, foot, wage, value, contract, season stats. Hidden attributes and current/potential ability are never read.
+- **Naming leagues:** the save stores competitions as ids. `python3 score.py leagues` lists them with their best-known clubs; add the ones
+  the user cares about to `[competitions]` in save.toml, exactly as FM names them. The managed club's league takes `division` automatically.
+- **Costs:** value and current wage are what FM shows anyone. Asking prices and wage demands aren't in the save.
+
+## Keeping the pages live
+
+`python3 score.py serve` serves `out/<save>/` on http://127.0.0.1:8765, opens it, and re-imports and rebuilds whenever FM writes `save_file`;
+the pages reload themselves. Leave it running in a terminal while the user plays.
 
 ## Adding screenshots
 

@@ -5,25 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 __THEME__
-  #filter { flex: 1; min-width: 0; font: inherit; color: var(--fg); background: transparent;
-            border: 0; border-bottom: 1px solid var(--line); padding: 2px 4px; outline: none; }
-  #filter:focus { border-bottom-color: var(--cyan); }
-  #filter.bad { border-bottom-color: var(--red); }
+  #filter { flex: 1; min-width: 200px; max-width: 560px; font: 13px var(--mono); color: var(--fg); background: var(--bg);
+            border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; outline: none; }
+  #filter:focus { border-color: var(--cyan); }
+  #filter.bad { border-color: var(--red); }
   #filter::placeholder { color: var(--dim); }
-  #count { color: var(--dim); }
+  #count { color: var(--dim); font-family: var(--mono); font-size: 12px; }
   #count.copied { color: var(--green); }
-  .tile { background: var(--bg); border: 2px solid var(--blue); padding: 12px 14px; overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
   th, td { padding: 5px 10px; white-space: nowrap; text-align: left; }
   th.num, td.num { text-align: right; }
-  th { cursor: pointer; user-select: none; font-weight: normal; color: var(--purple); border-bottom: 1px solid var(--line); }
+  th { cursor: pointer; user-select: none; font-weight: 500; color: var(--purple); border-bottom: 1px solid var(--line);
+       position: sticky; top: 0; background: var(--bg); z-index: 1; font-size: 12px; }
   th.sorted { color: var(--cyan); }
   th.curcol { text-decoration: underline; text-underline-offset: 4px; }
   th.desc::after { content: " ↓"; } th.asc::after { content: " ↑"; }
-  tbody tr:nth-child(even) td { background: #1f2131; }
+  tbody tr:nth-child(even) td { background: var(--zebra); }
+  #main { max-height: calc(100vh - 150px); overflow: auto; }
+  #main.tiles, #main.grid { max-height: none; }
   tr:hover td, tr.currow td { background: var(--hover); }
   td.cur { outline: 1px solid var(--cyan); outline-offset: -1px; }
   td.text { color: var(--purple); }
@@ -31,7 +33,7 @@ __THEME__
   td.dim, .sub { color: var(--dim); }
   .t0 { color: var(--red); } .t1 { color: var(--orange); } .t2 { color: var(--yellow); }
   .t3 { color: var(--cyan); } .t4 { color: var(--green); }
-  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; background: none; border: 0; padding: 0; }
   @media (max-width: 900px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
   .ttitle { color: var(--cyan); font-weight: 700; margin-bottom: 6px; }
   .tiles th { cursor: default; vertical-align: bottom; }
@@ -71,12 +73,17 @@ __THEME__
 </style>
 </head>
 <body>
+<header class="top">
+  <div class="brand"><div class="club">__HOME__</div><div class="sub" id="gamedate"></div></div>
+  <nav class="pages">__NAV__</nav>
+  <div class="kpis" id="kpis"></div>
+</header>
 <div class="bar">
-  <span class="pages">__NAV__</span>
   <input id="filter" placeholder="/ filter  e.g. age<=24 best=CB vs>=90 left=yes" spellcheck="false" autocomplete="off">
   <span id="count"></span>
   <a class="helphint" href="#" id="helphint"><b>?</b> keyboard shortcuts</a>
 </div>
+<div class="note" id="note"></div>
 <div class="tile" id="main">
   <table>
     <thead><tr id="head"></tr></thead>
@@ -87,7 +94,7 @@ __THEME__
 <div id="help"><div class="tile">
   <div class="ttitle">keyboard shortcuts</div>
   <table>
-    <tr><td><b>1</b> … <b>9</b> <b>0</b></td><td>__HOME__ · grid · elsewhere · last screenshots · filters · charts · staff · last staff screenshots · staff filters · settings</td></tr>
+    <tr><td><b>1</b> … <b>0</b> <b>-</b> <b>=</b></td><td id="helpkeys"></td></tr>
     <tr><td><b>← ↑ ↓ →</b></td><td>move the cell cursor</td></tr>
     <tr><td><b>enter</b></td><td>player (or staff) history over time (or double-click a row, or click a name on the grid; <b>esc</b> closes)</td></tr>
     <tr><td><b>c</b> or <b>⌘C</b></td><td>copy the cursor's player name, for FM's search (or drag-select any text)</td></tr>
@@ -102,7 +109,16 @@ __THEME__
 <script>
 const PAGE = "__PAGE__", SITE = __SITE__, PAGES = SITE.pages;
 const TABLE = !["grid", "filters", "staff_filters", "settings"].includes(PAGE);  // the other pages are tiles, with no table to filter or move around
-const DATA = __DATA__;
+const RAW = __DATA__;
+// The scouting and recruit pages carry their search (query) with the rows; every other table page is just rows
+const SEARCH = RAW && !Array.isArray(RAW) && "rows" in RAW ? RAW : null;
+const DATA = SEARCH ? SEARCH.rows : RAW;
+// Header: the game date and the club's headline numbers (SITE.kpis, from the save file); pages served by `score.py serve` reload on a rebuild
+document.getElementById("gamedate").textContent = [SITE.gameDate && "game date " + SITE.gameDate, "built " + SITE.built].filter(Boolean).join(" · ");
+document.getElementById("kpis").innerHTML = SITE.kpis.map(k => `<div class="kpi"><div class="l">${k.label}</div><div class="v">${k.value}</div></div>`).join("");
+if (location.protocol.startsWith("http")) {
+  let v0; setInterval(async () => { try { const v = await (await fetch("/_version", { cache: "no-store" })).text(); if (v0 && v !== v0) location.reload(); v0 = v; } catch (e) {} }, 3000);
+}
 const loanLabel = r => r.loan === "trial" ? "trial" : "loan " + r.loan;  // "loan in", "loan out", "trial"
 const FMT = {
   f1: v => v.toFixed(1),
@@ -125,6 +141,7 @@ try {
   if (s.sortKey && COLS.some(c => c.key === s.sortKey)) ({ sortKey, dir } = s);
   input.value = s.q || "";
 } catch (e) {}
+if (SEARCH?.sort && COLS.some(c => c.key === SEARCH.sort)) { sortKey = SEARCH.sort; dir = -1; }  // a search page sorts by what was asked
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify({ sortKey, dir, q: input.value })); } catch (e) {}
 }
@@ -412,7 +429,16 @@ input.addEventListener("input", () => { cur.r = 0; render(); });
 help.addEventListener("click", e => { if (e.target === help) help.classList.remove("show"); });
 detail.addEventListener("click", e => { if (e.target === detail) detail.classList.remove("show"); });
 document.getElementById("helphint").addEventListener("click", e => { e.preventDefault(); help.classList.add("show"); });
-if (PAGE.endsWith("staff")) input.placeholder = "/ filter  e.g. job:coach PosTct>=12 personality:prof";
+if (PAGE.endsWith("staff") || PAGE === "recruit") input.placeholder = "/ filter  e.g. job:coach PosTct>=12 age<=50";
+document.getElementById("helpkeys").innerHTML = Object.entries(SITE.keys).map(([p, k]) => `<b>${k}</b> ${SITE.labels[p]}`).join(" · ");
+// Search pages: what was asked, and the honesty rule for scouting
+if (SEARCH) {
+  const q = SEARCH.query, chips = q ? Object.entries(q).map(([k, v]) => `<span class="chip">${esc(k.replace("_", " "))}: ${esc(Array.isArray(v) ? v.join(", ") : v)}</span>`).join("") : "";
+  const how = PAGE === "recruit" ? "Ask your assistant to search, e.g. <b>find me an assistant manager, Dutch, under 4K a month</b>." :
+    "Ask your assistant to search, e.g. <b>find me a left back, 24 or under, in the Eredivisie, under 500K</b>.";
+  const rule = PAGE === "scouting" ? " Scores show only for players FM has shown you: your own, scouted ones (save.toml <b>scouted</b>) and leagues you know fully (<b>known_leagues</b>)." : "";
+  document.getElementById("note").innerHTML = q ? `Search: ${chips}${rule}` : how + rule;
+}
 if (PAGE === "filters" || PAGE === "staff_filters") renderFilters(); else if (PAGE === "grid") renderGrid(); else if (PAGE === "settings") renderSettings(); else render();
 </script>
 </body>

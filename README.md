@@ -171,7 +171,24 @@ It reads them, saves the players, and opens your pages in your web browser.
 ## Using it
 
 Whenever you want your squad and staff pages brought up to date, save the game and tell your assistant
-**"update from my save"**. For players who aren't at your club, screenshot them in FM and say **"new screenshots"**.
+**"update from my save"**. Or leave it running: ask for **"keep my pages live"** and the assistant starts a small
+local server that refreshes the pages every time FM saves.
+
+### Finding players and staff
+
+Your save holds every player and staff member in the game, and the assistant can search them for you:
+
+- **Staff:** "find me an assistant manager, Dutch, under 4K a month". The **recruit** tab lists candidates ranked
+  for that role, with their club, wage and contract. FM shows every staff member's attributes anyway, so this is
+  the same information as FM's staff search, just faster to sift.
+- **Players:** "find me a left back, 24 or under, in the Eredivisie, under 500K". The **scouting** tab lists
+  matches with what FM shows anyone: age, club, positions, foot, wage, value, contract and season stats.
+
+Scores only appear for players whose attributes FM has actually shown you: your own squad, players you've had
+scouted (tell the assistant "I've scouted X and Y") and leagues you know fully ("I have full knowledge of the
+Eredivisie"). The tool never reads hidden attributes or potential, so it helps you choose without cheating.
+
+For players who aren't at your club, screenshots still work too: screenshot them in FM and say **"new screenshots"**.
 For example:
 
 - **A transfer search:** screenshot the results to compare everyone it finds.

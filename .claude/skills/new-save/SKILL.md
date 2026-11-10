@@ -34,7 +34,9 @@ words, one step at a time, no jargon, and do the typing for them. `README.md` is
    README's "What you need"). Then `python3 score.py import --open squad` reads their squad and staff from the save
    file ("Importing the save file" in AGENTS.md). Then ask what FM shows as one named player's wage, and whether
    that's per week or per month: set config.toml's `money_rate` (the save stores pounds per week; what FM shows ÷
-   fmsave's, × 12/52 first if monthly) and `wage_period`, and import again. If they'd rather use screenshots: their squad screen with the
+   fmsave's, × 12/52 first if monthly) and `wage_period`, and import again. Then `python3 score.py leagues` and add the
+   leagues they care about to save.toml's `[competitions]` (AGENTS.md "Searching the save"); ask whether FM shows them
+   exact attributes for other clubs in their own division, and if so add it to `known_leagues`. If they'd rather use screenshots: their squad screen with the
    outfield view, scrolling to cover everyone, then the GK view, with FM's date and their crest in shot. When they say
    "new screenshots", follow "Adding screenshots" in AGENTS.md.
 5. Commit the new save: `git -C saves add -A && git -C saves commit -m "<save>: new save"`.

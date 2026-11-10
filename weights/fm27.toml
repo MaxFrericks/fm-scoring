@@ -87,6 +87,14 @@ Throwing = 0.5
 
 # Expected best-position score by age; "vs Age" = best score / benchmark.
 # Ages above the highest listed use the highest; below the lowest use the lowest.
+# FM's position codes each scored position covers (natural positions), for `score.py scout`
+[fm_positions]
+GK = ["GK"]
+CB = ["DC"]
+"WB/6" = ["DL", "DR", "WBL", "WBR", "DM"]
+10 = ["AMC", "AML", "AMR", "MC"]
+9 = ["STC"]
+
 [age_benchmark]
 15 = 10.3
 16 = 10.9

@@ -6,6 +6,10 @@
     python3 score.py init             first-time setup: config.toml and a save
     python3 score.py screenshots      list the newest screenshots in config.toml's screenshots_dir
     python3 score.py import           read the save file itself (save.toml's save_file) instead of screenshots, then score
+    python3 score.py recruit ROLE     search the save's staff for a role (the recruit page): --nation --job --max-wage --max-age
+    python3 score.py scout POS        search the save's players for a position (the scouting page): --max-age --max-value --league ...
+    python3 score.py leagues          list the save's leagues, to name them in save.toml's competitions
+    python3 score.py serve            serve the pages on localhost and rebuild them whenever FM saves
 
 Reads saves/<save>/obs/<YYYY-MM-DD>_<source>_<view>.csv (players) and saves/<save>/staff/<YYYY-MM-DD>_<source>.csv,
 scores them with weights/<save.toml's weights>.toml, and writes one page per entry in PAGES.
@@ -26,9 +30,17 @@ import tomllib
 import webbrowser
 from pathlib import Path
 
+import world as world_module
+
 ROOT = Path(__file__).parent
 CONFIG = ROOT / "config.toml"
-PAGES = ["squad", "grid", "elsewhere", "last", "filters", "charts", "staff", "last_staff", "staff_filters", "settings"]  # keys 1-9 then 0, in this order
+# The dashboard's tabs, in groups; each page's key is its position in KEYS
+GROUPS = {"squad": ["squad", "grid", "filters"], "scouting": ["scouting", "elsewhere", "last", "charts"],
+          "staff": ["staff", "recruit", "last_staff", "staff_filters"], "settings": ["settings"]}
+PAGES = [p for ps in GROUPS.values() for p in ps]
+KEYS = "1234567890-="
+LABELS = {"filters": "search filters", "elsewhere": "observed", "last": "last screenshots", "charts": "league",
+          "last_staff": "last staff screenshots", "staff_filters": "staff search filters"}
 META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division"}  # every other column is an attribute
 STAFF_META = {"Name", "Club", "Age", "Job", "Personality"}
 LEFT_FOOTED = {"Fairly Strong", "Strong", "Very Strong"}
@@ -144,6 +156,40 @@ def player_cols(w, with_club):
         *([{"key": "rating", "label": "Rating", "num": True, "fmt": "f2"},
            {"key": "minutes", "label": "Mins", "num": True}] if with_club else []),
     ]
+
+
+def scout_cols(w):
+    """The scouting page: what FM shows anyone, then scores (only for known players)."""
+    return [{"key": "name", "label": "Player"}, {"key": "club", "label": "Club"}, {"key": "league", "label": "League"},
+            {"key": "nation", "label": "Nation"}, {"key": "age", "label": "Age", "num": True}, {"key": "pos", "label": "Pos"},
+            {"key": "left", "label": "Left", "fmt": "yesno"}, {"key": "wage", "label": "Wage", "num": True, "fmt": "money"},
+            {"key": "value", "label": "Value", "num": True, "fmt": "range"}, {"key": "contract", "label": "Contract"},
+            {"key": "minutes", "label": "Mins", "num": True}, {"key": "rating", "label": "Rating", "num": True, "fmt": "f2"},
+            {"key": "goals", "label": "Goals", "num": True}, {"key": "assists", "label": "Assists", "num": True},
+            {"key": "xg", "label": "xG", "num": True, "fmt": "f2"}, {"key": "known", "label": "Scouted", "fmt": "yesno"},
+            *({"key": p, "label": p, "num": True, "fmt": "f1"} for p in ["GK", *w["outfield"]]),
+            {"key": "best", "label": "Best"}, {"key": "score", "label": "Score", "num": True, "fmt": "f1"},
+            {"key": "vsAge", "label": "vs Age", "num": True, "fmt": "pct"}]
+
+
+def recruit_cols(roles):
+    return [{"key": "name", "label": "Name"}, {"key": "club", "label": "Club"}, {"key": "nation", "label": "Nation"},
+            {"key": "age", "label": "Age", "num": True}, {"key": "job", "label": "Job"},
+            {"key": "wage", "label": "Wage", "num": True, "fmt": "money"}, {"key": "contract", "label": "Contract"},
+            *({"key": r, "label": r, "num": True, "fmt": "f1"} for r in roles)]
+
+
+def load_queries(save_dir):
+    """saves/<save>/queries.json: the latest scouting and recruit searches, kept so every build shows them."""
+    path = save_dir / "queries.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def save_query(save, kind, query):
+    path = ROOT / "saves" / save / "queries.json"
+    queries = load_queries(path.parent)
+    queries[kind] = {k: v for k, v in query.items() if v not in (None, [], False)}
+    path.write_text(json.dumps(queries, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def filters(squad, w):
@@ -380,39 +426,57 @@ def build(save, config):
                   if not f[11:].startswith("search-") and p["dates"][f[:10]]["club"] == managed]
     club_staff = [r for r in staff_rows if r["club"] == managed and r["history"][-1]["date"] >= max(club_dates, default="")]
 
+    # The whole world from the save file (score.py import): scouting and recruit searches, the league charts, headline numbers
+    convert = money_convert(config)
+    world = world_module.World(save_dir, cfg, fm_name, weighted) if (save_dir / "cache" / "meta.json").exists() else None
+    queries = load_queries(save_dir)
+    known = set(players) | set(cfg.get("scouted", []))  # players whose attributes FM has shown the user (see world.py)
+    check_listed(cfg, "known_leagues", set(world.league_names.values()) if world else set(), "names leagues not in save.toml's competitions")
+    recruit = world.recruit(w, queries["recruit"], convert, staff_word) if world and queries.get("recruit") else []
+    scouting = world.scout(w, cfg, queries["scout"], convert, known) if world and queries.get("scout") else []
+    league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
+    kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
+                      lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week"))) if world else []
+
     return cfg, {
         "squad": (player_cols(w, False), squad),
         "grid": (player_cols(w, False), grid(squad, w, cfg, intake)),  # the columns are for the history overlay
+        "filters": ([], filters(squad, w)),
+        "scouting": (scout_cols(w), {"query": queries.get("scout"), "rows": scouting, "sort": (queries.get("scout") or {}).get("sort", "rating")}),
         "elsewhere": (player_cols(w, True), [r for r in rows if r["club"] != managed]),
         # a screenshot of just names (e.g. a shortlist) picks players already observed; otherwise the batch's files
         "last": (player_cols(w, True), [r for r in rows if r["name"] in last_names] if last_names
                  else [r for r in rows if players[r["name"]]["files"] & last_batch]),
-        "filters": ([], filters(squad, w)),
-        "charts": ([], charts(rows, squad, w, cfg)),
+        "charts": ([], charts(rows + league, squad, w, cfg)),
         "staff": (staff_cols(roles), staff_rows),
+        "recruit": (recruit_cols(roles), {"query": queries.get("recruit"), "rows": recruit, "sort": (queries.get("recruit") or {}).get("role")}),
         # the batch's files, plus anyone named in last_staff_names
         "last_staff": (staff_cols(roles), [r for r in staff_rows
                                            if staff[r["name"]]["files"] & last_staff or r["name"] in last_staff_names]),
         "staff_filters": ([], staff_filters(club_staff, roles, w.get("staff_words", {}), w.get("staff_names", {}))),
         "settings": ([], settings(config, save)),
-    }
+    }, kpis
 
 
-def write_pages(save, config, cfg, pages):
+def write_pages(save, config, cfg, pages, kpis=()):
     out = ROOT / "out" / save
     out.mkdir(parents=True, exist_ok=True)
     home = html.escape(cfg["short_name"])
-    labels = {p: home if p == "squad" else p.replace("_", " ") for p in PAGES}
-    keys = {p: str(i % 10) for i, p in enumerate(PAGES, 1)}  # the tenth page is key 0
+    labels = {p: home if p == "squad" else LABELS.get(p, p.replace("_", " ")) for p in PAGES}
+    keys = dict(zip(PAGES, KEYS))
     dates = [f.name[:10] for d in ("obs", "staff") for f in (ROOT / "saves" / save / d).glob("*.csv")]
-    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "currency": config.get("currency", "£"),
+    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "groups": GROUPS, "labels": labels, "keys": keys,
+                       "currency": config.get("currency", "£"),
                        "wagePeriod": "p/m" if config.get("wage_period") == "month" else "p/w",  # how FM shows wages here
-                       "gameDate": max(dates, default=None)})  # the latest game date: the history overlay's "years ago"
+                       "gameDate": max(dates, default=None),  # the latest game date: the history overlay's "years ago"
+                       "kpis": list(kpis), "built": time.strftime("%Y-%m-%d %H:%M")}, ensure_ascii=False)
     theme = (ROOT / "theme.css").read_text(encoding="utf-8")
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
     weights = json.dumps({"GK": w["gk"], **w["outfield"], **w.get("staff", {})}, ensure_ascii=False)  # for the history overlay
     for page, (columns, data) in pages.items():
-        nav = "".join(f'<a href="{p}.html"{on}>{keys[p]} {labels[p]}</a>' for p in PAGES for on in [' class="on"' if p == page else ""])
+        group = next(g for g, ps in GROUPS.items() if page in ps)
+        nav = ('<span class="groups">' + "".join(f'<a href="{ps[0]}.html"{on}>{g}</a>' for g, ps in GROUPS.items() for on in [' class="on"' if g == group else ""]) + "</span>"
+               + '<span class="subs">' + "".join(f'<a href="{p}.html"{on}><b>{keys[p]}</b> {labels[p]}</a>' for p in GROUPS[group] for on in [' class="on"' if p == page else ""]) + "</span>")
         data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")  # a "</script>" in a name can't end the script
         template = (ROOT / ("charts.html" if page == "charts" else "template.html")).read_text(encoding="utf-8")
         page_html = (template.replace("__THEME__", theme).replace("__NAV__", nav)
@@ -420,9 +484,76 @@ def write_pages(save, config, cfg, pages):
                      .replace("__HOME__", home).replace("__PAGE__", page).replace("__SITE__", site)
                      .replace("__COLS__", json.dumps(columns)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
-    print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d)})" for p, (_, d) in pages.items()
+    print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d['rows'] if isinstance(d, dict) else d)})" for p, (_, d) in pages.items()
                                                  if p not in ("grid", "filters", "charts", "staff_filters", "settings")))
     return out
+
+
+def leagues(save):
+    """List the save's leagues with their best-known clubs, to name them in save.toml's `competitions`."""
+    save_dir = ROOT / "saves" / save
+    if not (save_dir / "cache" / "meta.json").exists():
+        raise SystemExit("No cache yet: run `python3 score.py import` first")
+    for l in world_module.World(save_dir, load_toml(save_dir / "save.toml"), fm_name, weighted).leagues():
+        print(f"#{l['id']:<6} {len(l['clubs']):>2} clubs  {l['nation']:<16} {l['name'] or '(unnamed)':<28} {', '.join(l['clubs'][:4])}")
+
+
+def serve(save, config, port):
+    """Serve the pages on localhost and rebuild them whenever FM writes the save file; the pages reload themselves."""
+    import http.server
+    import threading
+    out = ROOT / "out" / save
+    cfg = load_toml(ROOT / "saves" / save / "save.toml")
+    save_file = Path(cfg.get("save_file", "")).expanduser()
+    version = [str(time.time())]
+
+    def rebuild(do_import):
+        try:
+            if do_import:
+                import_save(save, config)
+            cfg, pages, kpis = build(save, config)
+            write_pages(save, config, cfg, pages, kpis)
+            version[0] = str(time.time())
+        except SystemExit as e:
+            print(f"rebuild failed: {e}")
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=str(out), **k)
+
+        def do_GET(self):
+            if self.path == "/_version":
+                body = version[0].encode()
+                self.send_response(200), self.send_header("Content-Type", "text/plain"), self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store"), self.end_headers(), self.wfile.write(body)
+            else:
+                super().do_GET()
+
+        def log_message(self, *a):
+            pass
+
+    rebuild(False)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{port}/squad.html"
+    print(f"Serving {url}" + (f", rebuilding whenever {save_file.name} is saved" if save_file.is_file() else " (no save_file to watch)") + ". Ctrl-C stops.")
+    webbrowser.open(url)
+    last = save_file.stat().st_mtime if save_file.is_file() else None
+    try:
+        while True:
+            time.sleep(2)
+            if not save_file.is_file():
+                continue
+            m = save_file.stat().st_mtime
+            if m != last:
+                while time.time() - m < 4:  # FM is still writing
+                    time.sleep(1)
+                    m = save_file.stat().st_mtime
+                last = m
+                print(time.strftime("%H:%M:%S"), "save changed: importing")
+                rebuild(True)
+    except KeyboardInterrupt:
+        pass
 
 
 # --- save file import: the fmsave package (Python 3.12+) reads the .fm file, so no screenshots are needed ---
@@ -432,7 +563,7 @@ HIDDEN_ATTRS = {"consistency", "dirtiness", "important_matches", "injury_pronene
 GK_ATTRS = {"aerial_reach", "command_of_area", "communication", "eccentricity", "handling", "kicking", "one_on_ones", "punching", "reflexes", "rushing_out", "throwing"}
 OUTFIELD_ATTRS = {"corners", "crossing", "dribbling", "finishing", "free_kick_taking", "heading", "long_shots", "long_throws", "marking", "penalty_taking", "tackling"}
 STAFF_SCALE_20 = {"adaptability", "authority", "working_with_youngsters"}  # the other staff attributes come out 1-100
-NON_COMPETITIVE = "non_competitive"  # friendlies: left out of minutes and rating, as FM's squad screen does
+SEASON_STATS = "overall"  # fmsave's season-stats kind for all competitive matches, as FM's squad screen shows them
 
 
 def fm_name(key):
@@ -450,6 +581,16 @@ def fm_money(value, currency, period=None):
             text = (f"{x:.2f}" if x < 10 else f"{x:.1f}" if x < 100 else f"{x:.0f}").rstrip("0").rstrip(".")
             return f"{currency}{text}{unit}{suffix}"
     return f"{currency}{v:.0f}{suffix}"
+
+
+def money_convert(config):
+    """How the save's money (pounds per week) becomes what FM shows: convert(value, wage=False)."""
+    rate = float(config.get("money_rate", 1))
+    period = config.get("wage_period", "week")
+    if period not in ("week", "month"):
+        raise SystemExit(f'config.toml wage_period must be "week" or "month", not {period!r}')
+    per = rate * (52 / 12 if period == "month" else 1)
+    return lambda value, wage=False: None if value is None else value * (per if wage else rate)
 
 
 def staff_word(key, value, words):
@@ -490,7 +631,10 @@ def set_toml_key(text, key, value):
     if value is None:
         return pattern.sub("", text)
     line = f"{key} = {value}\n"
-    return pattern.sub(lambda m: line, text, count=1) if pattern.search(text) else text + line
+    if pattern.search(text):
+        return pattern.sub(lambda m: line, text, count=1)
+    table = re.search(r"^\[", text, re.M)  # a new top-level key goes before the first table, or it would belong to that table
+    return text[:table.start()] + line + text[table.start():] if table else text + line
 
 
 def import_save(save, config, save_file=None):
@@ -504,11 +648,7 @@ def import_save(save, config, save_file=None):
     if not path.is_file():
         raise SystemExit(f"Save file not found: {path}")
     managed, currency, division = cfg["managed_club"], config.get("currency", "£"), cfg.get("division", "")
-    rate = float(config.get("money_rate", 1))  # fmsave's money is in the save's base currency (pounds): x this = what FM shows
-    period = config.get("wage_period", "week")  # FM shows wages per week or, in some countries, per month
-    if period not in ("week", "month"):
-        raise SystemExit(f'config.toml wage_period must be "week" or "month", not {period!r}')
-    per = rate * (52 / 12 if period == "month" else 1)  # fmsave's wages are per week
+    convert, period = money_convert(config), config.get("wage_period", "week")
     words = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml").get("staff_words", {})
     cmd = fmsave_command(config)
 
@@ -526,16 +666,17 @@ def import_save(save, config, save_file=None):
         players = export_table(cmd, copy, "players", "--managed-club", tmp)
         stats = export_table(cmd, copy, "player-season-stats", "--managed-club", tmp)
         staff = export_table(cmd, copy, "staff", "--managed-club", tmp)
+        # the whole world, for the scouting, recruit and league pages (saves/<save>/cache/, not committed)
+        cache = save_dir / "cache"
+        cache.mkdir(exist_ok=True)
+        for name, (table, scope, columns) in world_module.TABLES.items():
+            run_fmsave(cmd, "export", str(copy), table, scope, "-o", str(cache / f"{name}.csv"), *(["--columns", columns] if columns else []))
+        (cache / "meta.json").write_text(json.dumps({"game_date": date, "build": json.loads(info.stdout).get("build")}), encoding="utf-8")
 
-    # season minutes and average rating, competitive matches only
-    season = {}
-    for r in stats:
-        if r["kind"] != NON_COMPETITIVE:
-            s = season.setdefault(r["player_uid"], {"minutes": 0, "rated": 0, "sum": 0.0})
-            s["minutes"] += int(r["minutes"] or 0)
-            if r["average_rating"] and int(r["rated_appearances"] or 0):
-                s["rated"] += int(r["rated_appearances"])
-                s["sum"] += float(r["average_rating"]) * int(r["rated_appearances"])
+    # this season's minutes and average rating over all competitions (fmsave's "overall": FM's squad screen)
+    season = {r["player_uid"]: {"minutes": int(r["minutes"] or 0), "rated": int(r["rated_appearances"] or 0),
+                                "rating": float(r["average_rating"]) if r["average_rating"] else None}
+              for r in stats if r["kind"] == SEASON_STATS}
 
     attr_keys = sorted(k[11:] for k in players[0] if k.startswith("attributes_") and k[11:] not in HIDDEN_ATTRS) if players else []
     slug = re.sub(r"[^a-z0-9]+", "-", managed.lower()).strip("-")
@@ -551,9 +692,9 @@ def import_save(save, config, save_file=None):
             loan = "in" if on_loan else "out" if p["club_name"] != managed else "trial" if "trial" in p["contract_kind"] else ""
             foot = next(word for low, word in FOOT_WORDS if int(p["left_foot"]) >= low)
             rows.append([p["name"], managed, p["age"], foot,
-                         fm_money(float(p["contract_wage"]) * per, currency, period) if p["contract_wage"] else "",
-                         fm_money(float(p["transfer_value"]) * rate, currency) if p["transfer_value_state"] == "ok" and p["transfer_value"] else "",
-                         loan, s["minutes"] if s else "", f"{s['sum'] / s['rated']:.2f}" if s and s["rated"] else "", division,
+                         fm_money(convert(float(p["contract_wage"]), True), currency, period) if p["contract_wage"] else "",
+                         fm_money(convert(float(p["transfer_value"])), currency) if p["transfer_value_state"] == "ok" and p["transfer_value"] else "",
+                         loan, s["minutes"] if s else "", f"{s['rating']:.2f}" if s and s["rated"] and s["rating"] is not None else "", division,
                          *(p[f"attributes_{k}"] for k in keys)])
         if rows:
             name = f"{date}_{slug}_{view}.csv"
@@ -674,8 +815,29 @@ def main():
     sp.add_argument("--minutes", type=float, default=10, help="how far back to look (default 10)")
     ip = sub.add_parser("import", help="read the FM save file (save.toml's save_file) with fmsave instead of screenshots, then score")
     ip.add_argument("--file", help="the .fm file, if not save.toml's save_file")
-    ip.add_argument("--open", nargs="?", const="squad", choices=PAGES, metavar="PAGE", default=argparse.SUPPRESS,
-                    help="open a page afterwards (default: squad)")  # so `import --open` works as well as `--open import`
+    rp = sub.add_parser("recruit", help="search every staff member in the save for a role: the recruit page")
+    rp.add_argument("role", help="a staff role from the weights file, e.g. AM")
+    rp.add_argument("--nation", help="a nation (e.g. Netherlands, or 'mine' for the club's)")
+    rp.add_argument("--job", help="their job, e.g. 'Assistant Manager'")
+    rp.add_argument("--max-wage", type=money, metavar="MONEY", help="as FM shows wages, e.g. 4K")
+    rp.add_argument("--max-age", type=int)
+    rp.add_argument("--top", type=int, help="how many to show (default 50)")
+    sc = sub.add_parser("scout", help="search every player in the save for a position: the scouting page")
+    sc.add_argument("pos", help="a weights position (CB, 9...) or FM codes (DC, DM/MC)")
+    sc.add_argument("--max-age", type=int)
+    sc.add_argument("--max-value", type=money, metavar="MONEY", help="as FM shows values, e.g. 500K")
+    sc.add_argument("--max-wage", type=money, metavar="MONEY")
+    sc.add_argument("--league", action="append", dest="leagues", metavar="NAME", help="a league from save.toml's competitions (repeatable)")
+    sc.add_argument("--nation", action="append", dest="nations", metavar="NAME", help="repeatable")
+    sc.add_argument("--min-minutes", type=int)
+    sc.add_argument("--sort", help="rating (default), minutes, goals, assists, xg, age, value, wage, score")
+    sc.add_argument("--top", type=int, help="how many to show (default 100)")
+    sub.add_parser("leagues", help="list the save's leagues, to name them in save.toml's competitions")
+    sv = sub.add_parser("serve", help="serve the pages on localhost and rebuild whenever FM saves")
+    sv.add_argument("--port", type=int, default=8765)
+    for p, page in ((ip, "squad"), (rp, "recruit"), (sc, "scouting")):
+        p.add_argument("--open", nargs="?", const=page, choices=PAGES, metavar="PAGE", default=argparse.SUPPRESS,
+                       help=f"open a page afterwards (default: {page})")  # so `import --open` works as well as `--open import`
     args = ap.parse_args()
 
     if args.command == "init":
@@ -684,10 +846,19 @@ def main():
         return screenshots(args.minutes)
     config = load_config()
     save = args.save or config["active_save"]
+    if args.command == "leagues":
+        return leagues(save)
+    if args.command == "serve":
+        return serve(save, config, args.port)
     if args.command == "import":
         import_save(save, config, args.file)
-    cfg, pages = build(save, config)
-    out = write_pages(save, config, cfg, pages)
+    if args.command == "recruit":
+        save_query(save, "recruit", {"role": args.role, "nation": args.nation, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top})
+    if args.command == "scout":
+        save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
+                                   "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top})
+    cfg, pages, kpis = build(save, config)
+    out = write_pages(save, config, cfg, pages, kpis)
     if args.open:
         webbrowser.open((out / f"{args.open}.html").resolve().as_uri())
 
