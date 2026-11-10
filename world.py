@@ -192,8 +192,8 @@ class World:
         club_gender = {c["uid"]: c.get("gender", self.gender) for c in self.clubs}
         rows = []
         for s in self.staff:
-            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed or club_gender.get(s["club_uid"], self.gender) != self.gender:
-                continue  # staff in the other game (men's / women's) are left out, as for players
+            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed:
+                continue
             if nations and s["nation_id"] not in nations:
                 continue
             if q.get("job") and fm_name(s["job"]).lower() != q["job"].lower():
@@ -209,6 +209,7 @@ class World:
                 continue
             best = max(scores, key=scores.get)
             rows.append({"name": s["name"], "club": s["club_name"], "nation": self.nation(s["nation_id"]), "clubNation": club_nation.get(s["club_uid"]),
+                         "otherGame": club_gender.get(s["club_uid"], self.gender) != self.gender,  # staff of a women's (or men's) club: FM lets them move, marked on the page
                          "age": int(s["age"]) if s["age"] else None,
                          "job": fm_name(s["job"]) if s["job"] not in ("", "unknown") else None, "wage": wage, "contract": s["contract_end"] or None,
                          **scores, "best": best, "score": scores[best], "personality": None,
@@ -229,7 +230,7 @@ class World:
             bands, low = [], 0
             for cap in tiers:
                 band = [r for r in rows if r["wage"] is not None and low < r["wage"] <= cap][:q.get("top") or 3]
-                bands.append([{k: r[k] for k in ("name", "club", "clubNation", "nation", "age", "job", "wage", "contract")} | {"score": r[role]} for r in band])
+                bands.append([{k: r[k] for k in ("name", "club", "clubNation", "nation", "age", "job", "wage", "contract", "otherGame")} | {"score": r[role]} for r in band])
                 low = cap
             mine = max(((n, s) for n, s in club_staff.items() if role in s), key=lambda x: x[1][role], default=None)
             out.append({"role": role, "name": w.get("staff_names", {}).get(role, role),

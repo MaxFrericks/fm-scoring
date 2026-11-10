@@ -453,6 +453,8 @@ def build(save, config):
             for k in ("nation", "clubNation"):  # nation names in the page's language
                 if r.get(k):
                     r[k] = T["nations"].get(r[k], r[k])
+            if r.get("otherGame"):
+                r["club"] = f"{r['club']} ({T['ui']['otherGame']})"
     league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
     kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
                       lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week")), T["header"]) if world else []
@@ -534,7 +536,8 @@ def serve(save, config, port):
     out = ROOT / "out" / save
     cfg = load_toml(ROOT / "saves" / save / "save.toml")
     save_file = Path(cfg.get("save_file", "")).expanduser()
-    version = [str(time.time())]
+    def version():  # the newest page's time: any rebuild, from here or another terminal, makes open pages reload
+        return str(max((p.stat().st_mtime for p in out.glob("*.html")), default=0))
 
     def rebuild(do_import):
         try:
@@ -542,7 +545,6 @@ def serve(save, config, port):
                 import_save(save, config)
             cfg, pages, kpis = build(save, config)
             write_pages(save, config, cfg, pages, kpis)
-            version[0] = str(time.time())
         except SystemExit as e:
             print(f"rebuild failed: {e}")
 
@@ -552,7 +554,7 @@ def serve(save, config, port):
 
         def do_GET(self):
             if self.path == "/_version":
-                body = version[0].encode()
+                body = version().encode()
                 self.send_response(200), self.send_header("Content-Type", "text/plain"), self.send_header("Content-Length", str(len(body)))
                 self.send_header("Cache-Control", "no-store"), self.end_headers(), self.wfile.write(body)
             else:
