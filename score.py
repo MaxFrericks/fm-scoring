@@ -674,6 +674,8 @@ def main():
     sp.add_argument("--minutes", type=float, default=10, help="how far back to look (default 10)")
     ip = sub.add_parser("import", help="read the FM save file (save.toml's save_file) with fmsave instead of screenshots, then score")
     ip.add_argument("--file", help="the .fm file, if not save.toml's save_file")
+    ip.add_argument("--open", nargs="?", const="squad", choices=PAGES, metavar="PAGE", default=argparse.SUPPRESS,
+                    help="open a page afterwards (default: squad)")  # so `import --open` works as well as `--open import`
     args = ap.parse_args()
 
     if args.command == "init":
