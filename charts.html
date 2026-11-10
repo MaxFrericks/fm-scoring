@@ -113,7 +113,7 @@ function hover(p, e) {
   if (!p) { tip.style.display = "none"; return; }
   document.querySelectorAll(`.dot[data-name="${CSS.escape(p.name)}"]`).forEach(d => { d.classList.add("hl"); d.parentNode.appendChild(d); });
   const sc = Object.entries(p.scores).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(" · ");
-  tip.innerHTML = `<div class="nm">${p.name}</div><div class="d">${p.club} · ${p.age} · ${p.wage == null ? "–" : money(p.wage) + " p/w"}</div>` +
+  tip.innerHTML = `<div class="nm">${p.name}</div><div class="d">${p.club} · ${p.age} · ${p.wage == null ? "–" : money(p.wage) + " " + SITE.wagePeriod}</div>` +
     `<div>${sc} <span class="d">(best ${p.best})</span></div>` +
     `<div>${p.rating == null ? "" : `rating ${p.rating.toFixed(2)} <span class="d">in ${p.minutes} mins</span> · `}acc ${p.Acceleration ?? "–"} · pace ${p.Pace ?? "–"} · ${p.Agility != null ? `agility ${p.Agility}` : `jump ${p["Jumping Reach"] ?? "–"}`}</div>`;
   tip.style.display = "block";
@@ -240,7 +240,7 @@ function render() {
   strip("strip-speed", p => speed(p), sp, (p, pos) => p.best === pos, 2);
   document.getElementById("scatters").innerHTML = "";
   const pos = state.pos, score = p => p.scores[pos], rating = p => p.rating, spd = p => speed(p);
-  scatter({ title: `${pos} score vs wage`, x: p => p.wage || null, y: score, xl: "wage p/w (log)", yl: `${pos} score`, log: true });
+  scatter({ title: `${pos} score vs wage`, x: p => p.wage || null, y: score, xl: `wage ${SITE.wagePeriod} (log)`, yl: `${pos} score`, log: true });
   scatter({ title: `${pos} score vs average rating`, x: rating, y: score, xl: "average rating", yl: `${pos} score` });
   scatter({ title: `${sp} vs average rating`, x: spd, y: rating, xl: sp, yl: "rating", jitter: 0.35 });
 }

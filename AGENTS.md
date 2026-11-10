@@ -25,7 +25,7 @@ Runs on macOS, Windows and Linux: stdlib Python 3.11+ only (`python3` here; on W
 
 | Path | Purpose |
 |---|---|
-| `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`, and optionally `fmsave` (the command that runs fmsave, if it isn't `fmsave` or `uvx` on PATH). Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
+| `config.toml` | This computer's settings: `active_save` (the save being worked on; only ever touch that save), `screenshots_dir`, `currency`, and for `score.py import`: `money_rate` (the save stores money in pounds; × this = what FM shows, 1 for £), `wage_period` (`week` or `month`, as FM shows wages), `fmsave` (the command that runs fmsave, if it isn't `fmsave` or `uvx` on PATH). Gitignored; `python3 score.py init` writes it, `config.example.toml` shows it. |
 | `saves/<save>/save.toml` | `weights` (→ `weights/<name>.toml`), `managed_club` (exactly as FM shows it), `short_name` (page 1 label), `division` (the managed club's, as FM shows it; page 6's default), `save_file` (the `.fm` file `score.py import` reads), `last_batch` (obs files for page 4), `last_staff_batch` (staff files for page 8), `last_staff_names` (staff already observed to add to page 8), `youth_age`, `grid` (page 2's formation slots: `label`, weights `pos`, `left = true` for left-footed only), `grid_pins` (player → slot label), `grid_senior` (youngsters moved up to the senior columns), `grid_youth` (intake players kept: youth columns), `grid_exclude` (left off the grid) `released` (players gone since the latest squad screen) `signed` (players joined since) `recalled` (back from loan since) and `aliases` (a name FM cut off in an obs file → the full name). |
 | `saves/<save>/obs/*.csv` | Observations: `<YYYY-MM-DD>_<source>_<view>.csv`, one per screenshot set. Append-only. |
 | `saves/<save>/staff/*.csv` | Staff observations: `<YYYY-MM-DD>_<source>.csv` (`search-coach`). Append-only. |
@@ -57,9 +57,13 @@ The user says something like "update from my save", "import my save" or "refresh
   `managed_club`: it stops, like the crest check.
 - It reads only the managed club. Other clubs' players in the save carry their true attributes, not what the user's
   scouts know, so searches and leagues still come from screenshots unless the user asks otherwise.
-- fmsave calls FM27 builds it hasn't seen "unverified" and borrows the nearest layout; the attributes have been
-  checked against the game, wages and values not yet (they're in fmsave's "base currency", which may differ from
-  the one FM shows). Ask the user to compare a wage or two with FM after the first import on a new build.
+- Money comes out of the save in pounds per week. `money_rate` and `wage_period` in config.toml turn it into what
+  FM shows the user: for a new save, ask for one player's wage as FM shows it and set
+  `money_rate = shown ÷ fmsave's weekly` (× 12/52 first if FM shows it per month, then `wage_period = "month"`).
+  Checked 2026-11-10 on an FM27 save shown in €: rate 1.156, monthly.
+- fmsave calls FM27 builds it hasn't seen "unverified" and borrows the nearest layout; attributes, feet and wages
+  have been checked against the game. `FOOT_WORDS`: 20 Very Strong, 15–19 Strong, 12–14 Fairly Strong,
+  9–11 Reasonable, 5–8 Weak, 1–4 Very Weak.
 
 ## Adding screenshots
 

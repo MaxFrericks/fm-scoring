@@ -406,6 +406,7 @@ def write_pages(save, config, cfg, pages):
     keys = {p: str(i % 10) for i, p in enumerate(PAGES, 1)}  # the tenth page is key 0
     dates = [f.name[:10] for d in ("obs", "staff") for f in (ROOT / "saves" / save / d).glob("*.csv")]
     site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "currency": config.get("currency", "£"),
+                       "wagePeriod": "p/m" if config.get("wage_period") == "month" else "p/w",  # how FM shows wages here
                        "gameDate": max(dates, default=None)})  # the latest game date: the history overlay's "years ago"
     theme = (ROOT / "theme.css").read_text(encoding="utf-8")
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
@@ -426,7 +427,7 @@ def write_pages(save, config, cfg, pages):
 
 # --- save file import: the fmsave package (Python 3.12+) reads the .fm file, so no screenshots are needed ---
 
-FOOT_WORDS = [(20, "Very Strong"), (16, "Strong"), (13, "Fairly Strong"), (10, "Reasonable"), (6, "Weak"), (1, "Very Weak")]  # foot 1-20 -> FM's word (lowest value of each)
+FOOT_WORDS = [(20, "Very Strong"), (15, "Strong"), (12, "Fairly Strong"), (9, "Reasonable"), (5, "Weak"), (1, "Very Weak")]  # foot 1-20 -> FM's word (lowest value of each)
 HIDDEN_ATTRS = {"consistency", "dirtiness", "important_matches", "injury_proneness", "versatility"}  # FM doesn't show these
 GK_ATTRS = {"aerial_reach", "command_of_area", "communication", "eccentricity", "handling", "kicking", "one_on_ones", "punching", "reflexes", "rushing_out", "throwing"}
 OUTFIELD_ATTRS = {"corners", "crossing", "dribbling", "finishing", "free_kick_taking", "heading", "long_shots", "long_throws", "marking", "penalty_taking", "tackling"}
@@ -439,15 +440,16 @@ def fm_name(key):
     return " ".join(w if w in ("of", "on") else w.capitalize() for w in key.split("_"))
 
 
-def fm_money(value, currency, weekly=False):
-    """A number -> how FM shows it: €2.5M, €377K, €1.6K p/w, €730 p/w."""
+def fm_money(value, currency, period=None):
+    """A number -> how FM shows it: €2.5M, €377K, €1.6K p/w, €8.25K p/m, €730 p/w (`period`: "week" or "month" for a wage)."""
     v = float(value)
+    suffix = {"week": " p/w", "month": " p/m"}.get(period, "")
     for unit, size in (("M", 1e6), ("K", 1e3)):
         if v >= size:
             x = v / size
-            text = f"{x:.1f}".removesuffix(".0") if x < (100 if unit == "M" else 10) else f"{x:.0f}"
-            return f"{currency}{text}{unit}" + (" p/w" if weekly else "")
-    return f"{currency}{v:.0f}" + (" p/w" if weekly else "")
+            text = (f"{x:.2f}" if x < 10 else f"{x:.1f}" if x < 100 else f"{x:.0f}").rstrip("0").rstrip(".")
+            return f"{currency}{text}{unit}{suffix}"
+    return f"{currency}{v:.0f}{suffix}"
 
 
 def staff_word(key, value, words):
@@ -502,6 +504,11 @@ def import_save(save, config, save_file=None):
     if not path.is_file():
         raise SystemExit(f"Save file not found: {path}")
     managed, currency, division = cfg["managed_club"], config.get("currency", "£"), cfg.get("division", "")
+    rate = float(config.get("money_rate", 1))  # fmsave's money is in the save's base currency (pounds): x this = what FM shows
+    period = config.get("wage_period", "week")  # FM shows wages per week or, in some countries, per month
+    if period not in ("week", "month"):
+        raise SystemExit(f'config.toml wage_period must be "week" or "month", not {period!r}')
+    per = rate * (52 / 12 if period == "month" else 1)  # fmsave's wages are per week
     words = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml").get("staff_words", {})
     cmd = fmsave_command(config)
 
@@ -544,8 +551,8 @@ def import_save(save, config, save_file=None):
             loan = "in" if on_loan else "out" if p["club_name"] != managed else "trial" if "trial" in p["contract_kind"] else ""
             foot = next(word for low, word in FOOT_WORDS if int(p["left_foot"]) >= low)
             rows.append([p["name"], managed, p["age"], foot,
-                         fm_money(p["contract_wage"], currency, weekly=True) if p["contract_wage"] else "",
-                         fm_money(p["transfer_value"], currency) if p["transfer_value_state"] == "ok" and p["transfer_value"] else "",
+                         fm_money(float(p["contract_wage"]) * per, currency, period) if p["contract_wage"] else "",
+                         fm_money(float(p["transfer_value"]) * rate, currency) if p["transfer_value_state"] == "ok" and p["transfer_value"] else "",
                          loan, s["minutes"] if s else "", f"{s['sum'] / s['rated']:.2f}" if s and s["rated"] else "", division,
                          *(p[f"attributes_{k}"] for k in keys)])
         if rows:
