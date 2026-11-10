@@ -437,8 +437,9 @@ def build(save, config):
     queries = load_queries(save_dir)
     known = set(players) | set(cfg.get("scouted", []))  # players whose attributes FM has shown the user (see world.py)
     check_listed(cfg, "known_leagues", set(world.league_names.values()) if world else set(), "names leagues not in save.toml's competitions")
+    declined = set(cfg.get("declined", []))  # staff who've said no: left out of the recruit and plan pages
     recruit = [{"key": q["role"], "label": w.get("staff_names", {}).get(q["role"], q["role"]), "query": q, "sort": q["role"],
-                "rows": world.recruit(w, q, convert, staff_word)} for q in queries.get("recruit", [])] if world else []
+                "rows": world.recruit(w, {**q, "skip": declined}, convert, staff_word)} for q in queries.get("recruit", [])] if world else []
     scouting = [{"key": q["pos"], "label": q["pos"], "query": q, "sort": q.get("sort", "rating"),
                  "rows": world.scout(w, cfg, q, convert, known)} for q in queries.get("scout", [])] if world else []
     # the staff plan: the club's best per role (by their latest staff screen) next to the market by wage band
@@ -447,7 +448,7 @@ def build(save, config):
         for s in world.staff:
             if s["name"] in club_scores and s["wage"]:
                 club_scores[s["name"]]["wage"] = round(convert(float(s["wage"]), True))
-    plan = world.staff_plan(w, queries["plan"][0], convert, staff_word, club_scores) if world and queries.get("plan") else None
+    plan = world.staff_plan(w, {**queries["plan"][0], "skip": declined}, convert, staff_word, club_scores) if world and queries.get("plan") else None
     for s in recruit + scouting + (plan["roles"] if plan else []):
         for r in (s["rows"] if "rows" in s else [c for b in s["bands"] for c in b]):
             for k in ("nation", "clubNation"):  # nation names in the page's language

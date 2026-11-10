@@ -55,6 +55,7 @@ STRINGS = {
                 ["I've scouted X and Y", "Unlocks those players' scores on the search pages, as your scouts have reported on them in FM."],
                 ["I have full knowledge of the Eredivisie", "FM shows you exact attributes for everyone there: their scores show too, and the league appears on the League page."],
                 ["New screenshots", "Reads screenshots of FM's player or staff lists (a shortlist, a search, a league) into the pages."],
+                ["X said no", "Takes that person off the Recruit and Staff plan pages, so the next candidate moves up."],
                 ["Sold X / signed X / recalled X", "Keeps the squad right between saves."],
             ]},
             {"title": "The scores", "rows": [
@@ -135,6 +136,7 @@ STRINGS = {
                 ["Ik heb X en Y gescout", "Maakt de scores van die spelers zichtbaar op de zoekpagina's, omdat je scouts in FM over ze gerapporteerd hebben."],
                 ["Ik ken de Eredivisie volledig", "FM laat je daar van iedereen exacte attributen zien: dan tonen hun scores ook, en de competitie verschijnt op de pagina Competitie."],
                 ["Nieuwe screenshots", "Leest screenshots van FM's speler- of staflijsten (een shortlist, een zoekopdracht, een competitie) in."],
+                ["X zegt nee", "Haalt die persoon van de pagina's Werven en Stafplan, zodat de volgende kandidaat opschuift."],
                 ["X verkocht / X gehaald / X teruggehaald", "Houdt de selectie kloppend tussen twee saves in."],
             ]},
             {"title": "De scores", "rows": [

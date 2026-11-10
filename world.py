@@ -41,7 +41,7 @@ LANDMARKS = {
     "England": ["Manchester United", "Liverpool"], "Spain": ["Real Madrid", "FC Barcelona"], "Italy": ["Juventus", "Inter"],
     "France": ["Paris Saint-Germain", "Olympique de Marseille"], "Portugal": ["SL Benfica", "FC Porto"], "Scotland": ["Celtic", "Rangers"],
     "Turkey": ["Galatasaray", "Fenerbahçe"], "Austria": ["Red Bull Salzburg", "Rapid Wien"], "Switzerland": ["FC Basel", "BSC Young Boys"],
-    "Denmark": ["F.C. København", "Brøndby"], "Sweden": ["Malmö FF", "AIK"], "Norway": ["Rosenborg", "Molde"], "Poland": ["Legia Warszawa", "Lech Poznań"],
+    "Denmark": ["F.C. København", "Football Club København", "Brøndby", "Brøndby IF"], "Sweden": ["Malmö FF", "AIK"], "Norway": ["Rosenborg", "Molde"], "Poland": ["Legia Warszawa", "Lech Poznań"],
     "Czechia": ["Sparta Praha", "Slavia Praha"], "Croatia": ["Dinamo Zagreb", "Hajduk Split"], "Serbia": ["Crvena Zvezda", "Partizan"],
     "Greece": ["Olympiakos", "Panathinaikos"], "Ukraine": ["Shakhtar Donetsk", "Dynamo Kyiv"], "Russia": ["Zenit", "Spartak Moskva"],
     "Hungary": ["Ferencváros"], "Romania": ["FCSB", "CFR Cluj"], "Bulgaria": ["Ludogorets"], "Israel": ["Maccabi Tel Aviv"], "Cyprus": ["APOEL"],
@@ -192,8 +192,8 @@ class World:
         club_gender = {c["uid"]: c.get("gender", self.gender) for c in self.clubs}
         rows = []
         for s in self.staff:
-            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed:
-                continue
+            if s.get("is_human_manager") == "true" or s["club_name"] == self.managed or s["name"] in q.get("skip", ()):
+                continue  # skip: save.toml's `declined`, staff who've said no
             if club_gender.get(s["club_uid"], self.gender) != self.gender and not q.get("other_game"):
                 continue  # staff at the other game's clubs (women's teams, for a men's club): only when asked for
             if nations and s["nation_id"] not in nations:
@@ -228,7 +228,7 @@ class World:
         roles = q.get("roles") or [r for r in w["staff"] if r != "Mgr"]
         out = []
         for role in roles:
-            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "other_game": q.get("other_game"), "top": 10 ** 6}, convert, staff_word)
+            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "other_game": q.get("other_game"), "skip": q.get("skip", ()), "top": 10 ** 6}, convert, staff_word)
             bands, low = [], 0
             for cap in tiers:
                 band = [r for r in rows if r["wage"] is not None and low < r["wage"] <= cap][:q.get("top") or 3]
