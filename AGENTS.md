@@ -71,9 +71,12 @@ The user says something like "update from my save", "import my save" or "refresh
   `_gk.csv` (keepers = natural position GK) and its staff as `staff/<game date>_<club slug>.csv`, exactly as a squad
   screen and a staff screen would: FM's attribute names, FM's words for staff attributes, `Left Foot` as FM's word,
   money as FM shows it (`FOOT_WORDS`, `staff_word`, `fm_money` in `score.py`). `Division` is save.toml's;
-  `Minutes` and `Rating` are the season's competitive matches. It then sets `last_batch` and `last_staff_batch`,
-  removes `last_names`/`last_staff_names`, empties `last_batch` and `last_staff_batch` (the "last screenshots" pages are for screenshots),
-  and empties `released`, `signed` and `recalled` (it is a new squad screen).
+  `Minutes` and `Rating` are the season's competitive matches. It leaves `last_batch`, `last_staff_batch` and the
+  `last_*names` alone (the "last screenshots" pages are for screenshots, and `serve` imports on every save), and empties
+  `released`, `signed` and `recalled` (it is a new squad screen).
+- FM shows staff words in the game's language; a staff file holds the English ones (Dutch: Ongeschikt Unsuited, Redelijk
+  Reasonable, Capabel Competent, Prima Average, Goed Good, Erg goed Very Good, Uitmuntend Outstanding). The Dutch staff view's
+  headers in order: Vbh Mot BPt Mgm Aut. TCo Beo Tec Jon Pos Tct Anv Vrd Fys Con SpW Ana D Ves, as the English column map below.
 - Running it again on the same game date overwrites that date's files. The save manages a different club than
   `managed_club`: it stops, like the crest check.
 - It reads only the managed club. Other clubs' players in the save carry their true attributes, not what the user's

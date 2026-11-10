@@ -756,11 +756,7 @@ def import_save(save, config, save_file=None):
 
     toml_path = save_dir / "save.toml"
     text = toml_path.read_text(encoding="utf-8")
-    # the "last screenshots" pages are for screenshots: an import empties them (the squad and staff pages show the import)
-    text = set_toml_key(text, "last_batch", "[]")
-    text = set_toml_key(text, "last_staff_batch", "[]")
-    for key in ("last_names", "last_staff_names"):
-        text = set_toml_key(text, key, None)
+    # the "last screenshots" pages are for screenshots, so an import leaves last_batch and last_staff_batch as they are
     for key in ("released", "signed", "recalled"):  # a new squad screen: these are settled
         if key in cfg:
             text = set_toml_key(text, key, "[]")
