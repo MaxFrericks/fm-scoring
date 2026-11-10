@@ -428,7 +428,7 @@ function renderPlan() {
   if (!DATA) { main.innerHTML = `<div class="sub">${t("noPlan")}</div>`; return; }
   const band = (i) => `${i ? FMT.money(DATA.tiers[i - 1]) + "–" : t("upTo") + " "}${FMT.money(DATA.tiers[i])}`;
   const cand = c => c ? `<div class="cand"><div class="cn">${esc(c.name)} <span class="num ${tier(c.score, RANGE.f1)}">${FMT.f1(c.score)}</span></div>` +
-    `<div class="sub">${esc(c.club)}${c.clubNation && c.clubNation !== c.nation ? ` (${esc(c.clubNation)})` : ""} · ${c.age ?? "–"} · ${esc(c.job || "–")}</div>` +
+    `<div class="sub">${esc(c.club)}${c.clubNation && c.clubNation !== c.nation ? ` (${esc(c.clubNation)})` : ""} · ${c.age ?? "–"} · ${esc(c.job || "–")}${c.step ? ` · ${esc(c.step)}` : ""}</div>` +
     `<div class="sub mono">${FMT.money(c.wage)} ${SITE.wagePeriod} · ${c.contract || "–"}</div></div>` : `<div class="sub">–</div>`;
   const n = Math.max(1, ...DATA.roles.flatMap(r => r.bands.map(b => b.length)));
   main.innerHTML = DATA.roles.map(r => `<div class="tile">

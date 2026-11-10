@@ -34,6 +34,7 @@ TABLES = {  # cache file -> (fmsave table, scope, columns or None for all)
 }
 MIN_LEAGUE_FIXTURES = 10  # a team's league: the competition with most fixtures in its latest season with this many
 LEAGUE_STATS = "league"  # the season-stats kind for a league search (what FM's league views show)
+STEP_UP, STEP_DOWN = 0.8, 1.1  # a candidate's club reputation vs the managed club's: below 80% we're a step up for them, above 110% a step down
 LEFT_FOOTED_FROM = 12  # foot value of Fairly Strong (score.py's LEFT_FOOTED) and up
 # The save stores nations as numbers only. A nation is named by its best-known club (the highest-reputation match).
 LANDMARKS = {
@@ -190,6 +191,14 @@ class World:
         nations = {self.nation_id(n) for n in (q.get("nations") or ([q["nation"]] if q.get("nation") else []))}
         club_nation = {c["uid"]: self.nation(c["nation_id"]) for c in self.clubs}
         club_gender = {c["uid"]: c.get("gender", self.gender) for c in self.clubs}
+        club_rep = {c["uid"]: num(c["reputation"]) for c in self.clubs}
+        mine = next((num(c["reputation"]) for c in self.clubs if c["name"] == self.managed and c.get("gender", "men") == self.gender), None)
+
+        def step(uid):  # is joining us a step up for them? (staff from equal or bigger clubs rarely move down)
+            rep = club_rep.get(uid)
+            if not rep or not mine:
+                return None
+            return "up" if rep < mine * STEP_UP else "down" if rep > mine * STEP_DOWN else "level"
         rows = []
         for s in self.staff:
             if s.get("is_human_manager") == "true" or s["club_name"] == self.managed or s["name"] in q.get("skip", ()):
@@ -199,6 +208,8 @@ class World:
             if nations and s["nation_id"] not in nations:
                 continue
             if q.get("job") and fm_name(s["job"]).lower() != q["job"].lower():
+                continue
+            if q.get("steps") and step(s["club_uid"]) not in q["steps"]:
                 continue
             if q.get("max_age") and (not s["age"] or int(float(s["age"])) > q["max_age"]):
                 continue
@@ -211,7 +222,7 @@ class World:
                 continue
             best = max(scores, key=scores.get)
             rows.append({"name": s["name"], "club": s["club_name"], "nation": self.nation(s["nation_id"]), "clubNation": club_nation.get(s["club_uid"]),
-                         "otherGame": club_gender.get(s["club_uid"], self.gender) != self.gender,  # staff of a women's (or men's) club: FM lets them move, marked on the page
+                         "otherGame": club_gender.get(s["club_uid"], self.gender) != self.gender, "step": step(s["club_uid"]),  # staff of a women's (or men's) club: FM lets them move, marked on the page
                          "age": int(s["age"]) if s["age"] else None,
                          "job": fm_name(s["job"]) if s["job"] not in ("", "unknown") else None, "wage": wage, "contract": s["contract_end"] or None,
                          **scores, "best": best, "score": scores[best], "personality": None,
@@ -228,11 +239,12 @@ class World:
         roles = q.get("roles") or [r for r in w["staff"] if r != "Mgr"]
         out = []
         for role in roles:
-            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "other_game": q.get("other_game"), "skip": q.get("skip", ()), "top": 10 ** 6}, convert, staff_word)
+            rows = self.recruit(w, {"role": role, "nations": q.get("nations"), "other_game": q.get("other_game"), "steps": q.get("steps"),
+                                    "skip": q.get("skip", ()), "top": 10 ** 6}, convert, staff_word)
             bands, low = [], 0
             for cap in tiers:
                 band = [r for r in rows if r["wage"] is not None and low < r["wage"] <= cap][:q.get("top") or 3]
-                bands.append([{k: r[k] for k in ("name", "club", "clubNation", "nation", "age", "job", "wage", "contract", "otherGame")} | {"score": r[role]} for r in band])
+                bands.append([{k: r[k] for k in ("name", "club", "clubNation", "nation", "age", "job", "wage", "contract", "otherGame", "step")} | {"score": r[role]} for r in band])
                 low = cap
             mine = max(((n, s) for n, s in club_staff.items() if role in s), key=lambda x: x[1][role], default=None)
             out.append({"role": role, "name": w.get("staff_names", {}).get(role, role),

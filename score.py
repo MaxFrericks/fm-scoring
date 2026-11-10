@@ -175,7 +175,7 @@ def scout_cols(w):
 def recruit_cols(roles):
     return [{"key": "name", "label": "Name"}, {"key": "club", "label": "Club"}, {"key": "clubNation", "label": "Club nation"},
             {"key": "nation", "label": "Nation"}, {"key": "age", "label": "Age", "num": True}, {"key": "job", "label": "Job"},
-            {"key": "wage", "label": "Wage", "num": True, "fmt": "money"}, {"key": "contract", "label": "Contract"},
+            {"key": "wage", "label": "Wage", "num": True, "fmt": "money"}, {"key": "contract", "label": "Contract"}, {"key": "step", "label": "Step"},
             *({"key": r, "label": r, "num": True, "fmt": "f1"} for r in roles)]
 
 
@@ -456,6 +456,8 @@ def build(save, config):
                     r[k] = T["nations"].get(r[k], r[k])
             if r.get("otherGame"):
                 r["club"] = f"{r['club']} ({T['ui']['otherGame']})"
+            if r.get("step"):
+                r["step"] = T["steps"][r["step"]]
     league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
     kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
                       lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week")), T["header"]) if world else []
@@ -857,6 +859,8 @@ def main():
     rp.add_argument("--max-wage", type=money, metavar="MONEY", help="as FM shows wages, e.g. 4K")
     rp.add_argument("--max-age", type=int)
     rp.add_argument("--top", type=int, help="how many to show (default 50)")
+    rp.add_argument("--step", action="append", dest="steps", choices=["up", "level", "down"],
+                    help="only staff for whom joining is this step, by club reputation (repeatable): up = from a smaller club")
     rp.add_argument("--other-game", action="store_true", help="include staff at the other game's clubs (women's teams, for a men's club)")
     sc = sub.add_parser("scout", help="search every player in the save for a position: the scouting page")
     sc.add_argument("pos", help="a weights position (CB, 9...) or FM codes (DC, DM/MC)")
@@ -873,6 +877,7 @@ def main():
     pp.add_argument("--tier", action="append", dest="tiers", type=money, metavar="MONEY", help="a wage band ceiling as FM shows wages, repeatable (default 1.5K 2.5K 4K 6K)")
     pp.add_argument("--role", action="append", dest="roles", metavar="ROLE", help="repeatable; default: every role but Mgr")
     pp.add_argument("--top", type=int, help="candidates per band (default 3)")
+    pp.add_argument("--step", action="append", dest="steps", choices=["up", "level", "down"], help="as for recruit")
     pp.add_argument("--other-game", action="store_true", help="include staff at the other game's clubs (women's teams, for a men's club)")
     sub.add_parser("leagues", help="list the save's leagues, to name them in save.toml's competitions")
     sv = sub.add_parser("serve", help="serve the pages on localhost and rebuild whenever FM saves")
@@ -896,9 +901,9 @@ def main():
         import_save(save, config, args.file)
     if args.command == "recruit":
         save_query(save, "recruit", {"role": args.role, "nations": args.nations, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top,
-                                     "other_game": args.other_game}, "role")
+                                     "other_game": args.other_game, "steps": args.steps}, "role")
     if args.command == "plan":
-        save_query(save, "plan", {"nations": args.nations, "tiers": args.tiers, "roles": args.roles, "top": args.top, "other_game": args.other_game, "kind": "plan"}, "kind")
+        save_query(save, "plan", {"nations": args.nations, "tiers": args.tiers, "roles": args.roles, "top": args.top, "other_game": args.other_game, "steps": args.steps, "kind": "plan"}, "kind")
     if args.command == "scout":
         save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
                                    "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top}, "pos")

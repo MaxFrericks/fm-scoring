@@ -103,6 +103,8 @@ The user asks in words; the agent turns it into a search and the page shows the 
 - **The staff plan** ("what does more money buy per role"): `python3 score.py plan --nation mine --nation Germany --tier 1.5K --tier 2.5K --tier 4K --tier 6K --open`
   writes the **plan** page: per role (`--role`, default all but Mgr), the club's best now and the top `--top` (3) candidates in each wage
   band, so the user can decide per role where extra money is worth it.
+- **Step:** recruit rows carry `step`: whether joining the managed club is a step up for them (their club's reputation below 80% of ours),
+  level, or down (above 110%). Staff at equal or bigger clubs mostly refuse, so `--step up` (repeatable, with `level`/`down`) narrows recruit and plan to them.
 - **Who said no:** the user reports a refusal ("X isn't interested"): add the name, exactly as in the save, to `declined` in save.toml
   and rebuild; they drop out of the recruit and plan pages, and the next candidate moves up. The save holds no willingness to move.
 - **The other game:** FM27 holds men's and women's clubs (often under the same name, e.g. two VfL Wolfsburgs). Searches leave out staff
