@@ -203,6 +203,11 @@ now and then, because a misread number is the most likely mistake.
 
 ### The pages
 
+The pages open in your browser with a sidebar: **Club** (your squad, line-up and what to search for), **Scouting**
+(search results, the league), **Staff** (your staff, recruiting) and **More** (settings, and a help page with
+everything you can say to your assistant). Each page starts with a line on what it shows and how to use it. The
+pages are in English or Dutch: ask your assistant to switch.
+
 Press the number keys to move between pages, and **?** on any page for its keyboard shortcuts.
 
 | Key | Page | What's on it |

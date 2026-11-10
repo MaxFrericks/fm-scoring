@@ -168,14 +168,14 @@ class World:
     def player_stats(self, p, kind=LEAGUE_STATS):
         return self.season.get(p["uid"], {}).get(kind)
 
-    def kpis(self, money, wage):
-        """Headline numbers for the dashboard: the club's finances (as FM shows them) and the game date."""
+    def kpis(self, money, wage, labels):
+        """Headline numbers for the dashboard: the club's finances, as FM shows them."""
         f = self.finances
         if not f:
             return []
-        return [{"label": "balance", "value": money(num(f["balance"]))},
-                {"label": "transfer budget", "value": money(num(f["transfer_budget_remaining"]))},
-                {"label": "wage budget", "value": f"{wage(num(f['wage_payroll_weekly']))} of {wage(num(f['wage_budget_weekly']))}"}]
+        return [{"label": labels["balance"], "value": money(num(f["balance"]))},
+                {"label": labels["transfer"], "value": money(num(f["transfer_budget_remaining"]))},
+                {"label": labels["wages"], "value": f"{wage(num(f['wage_payroll_weekly']))} / {wage(num(f['wage_budget_weekly']))}"}]
 
     # --- searches ---
 

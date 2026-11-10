@@ -30,17 +30,17 @@ import tomllib
 import webbrowser
 from pathlib import Path
 
+import lang
 import world as world_module
 
 ROOT = Path(__file__).parent
 CONFIG = ROOT / "config.toml"
 # The dashboard's tabs, in groups; each page's key is its position in KEYS
-GROUPS = {"squad": ["squad", "grid", "filters"], "scouting": ["scouting", "elsewhere", "last", "charts"],
-          "staff": ["staff", "recruit", "last_staff", "staff_filters"], "settings": ["settings"]}
+GROUPS = {"squad": ["squad", "grid", "filters"], "scouting": ["scouting", "charts", "elsewhere", "last"],
+          "staff": ["staff", "recruit", "last_staff", "staff_filters"], "settings": ["settings", "help"]}
 PAGES = [p for ps in GROUPS.values() for p in ps]
-KEYS = "1234567890-="
-LABELS = {"filters": "search filters", "elsewhere": "observed", "last": "last screenshots", "charts": "league",
-          "last_staff": "last staff screenshots", "staff_filters": "staff search filters"}
+KEYS = "1234567890-="  # the first twelve pages get a key
+SCREENSHOT_PAGES = ("elsewhere", "last", "last_staff")  # hidden from the sidebar while empty (a save-file user never sees them)
 META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division"}  # every other column is an attribute
 STAFF_META = {"Name", "Club", "Age", "Job", "Personality"}
 LEFT_FOOTED = {"Fairly Strong", "Strong", "Very Strong"}
@@ -427,16 +427,18 @@ def build(save, config):
     club_staff = [r for r in staff_rows if r["club"] == managed and r["history"][-1]["date"] >= max(club_dates, default="")]
 
     # The whole world from the save file (score.py import): scouting and recruit searches, the league charts, headline numbers
-    convert = money_convert(config)
+    convert, T = money_convert(config), lang.strings(config.get("language", "en"))
     world = world_module.World(save_dir, cfg, fm_name, weighted) if (save_dir / "cache" / "meta.json").exists() else None
     queries = load_queries(save_dir)
     known = set(players) | set(cfg.get("scouted", []))  # players whose attributes FM has shown the user (see world.py)
     check_listed(cfg, "known_leagues", set(world.league_names.values()) if world else set(), "names leagues not in save.toml's competitions")
     recruit = world.recruit(w, queries["recruit"], convert, staff_word) if world and queries.get("recruit") else []
     scouting = world.scout(w, cfg, queries["scout"], convert, known) if world and queries.get("scout") else []
+    for r in recruit + scouting:
+        r["nation"] = T["nations"].get(r["nation"], r["nation"])  # nation names in the page's language
     league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
     kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
-                      lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week"))) if world else []
+                      lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week")), T["header"]) if world else []
 
     return cfg, {
         "squad": (player_cols(w, False), squad),
@@ -455,17 +457,21 @@ def build(save, config):
                                            if staff[r["name"]]["files"] & last_staff or r["name"] in last_staff_names]),
         "staff_filters": ([], staff_filters(club_staff, roles, w.get("staff_words", {}), w.get("staff_names", {}))),
         "settings": ([], settings(config, save)),
+        "help": ([], T["help"]),
     }, kpis
 
 
 def write_pages(save, config, cfg, pages, kpis=()):
     out = ROOT / "out" / save
     out.mkdir(parents=True, exist_ok=True)
+    T = lang.strings(config.get("language", "en"))
     home = html.escape(cfg["short_name"])
-    labels = {p: home if p == "squad" else LABELS.get(p, p.replace("_", " ")) for p in PAGES}
+    labels = {p: T["pages"][p] for p in PAGES}
     keys = dict(zip(PAGES, KEYS))
+    hidden = [p for p in SCREENSHOT_PAGES if not pages[p][1]]  # nothing from screenshots yet: keep the sidebar simple
     dates = [f.name[:10] for d in ("obs", "staff") for f in (ROOT / "saves" / save / d).glob("*.csv")]
-    site = json.dumps({"pages": {keys[p]: p for p in PAGES}, "groups": GROUPS, "labels": labels, "keys": keys,
+    site = json.dumps({"pages": {keys[p]: p for p in PAGES if p in keys}, "groups": GROUPS, "labels": labels, "keys": keys, "hidden": hidden,
+                       "t": {**T["ui"], "keys": T["keys"], "header": T["header"]},
                        "currency": config.get("currency", "£"),
                        "wagePeriod": "p/m" if config.get("wage_period") == "month" else "p/w",  # how FM shows wages here
                        "gameDate": max(dates, default=None),  # the latest game date: the history overlay's "years ago"
@@ -474,18 +480,23 @@ def write_pages(save, config, cfg, pages, kpis=()):
     w = load_toml(ROOT / "weights" / f"{cfg['weights']}.toml")
     weights = json.dumps({"GK": w["gk"], **w["outfield"], **w.get("staff", {})}, ensure_ascii=False)  # for the history overlay
     for page, (columns, data) in pages.items():
-        group = next(g for g, ps in GROUPS.items() if page in ps)
-        nav = ('<span class="groups">' + "".join(f'<a href="{ps[0]}.html"{on}>{g}</a>' for g, ps in GROUPS.items() for on in [' class="on"' if g == group else ""]) + "</span>"
-               + '<span class="subs">' + "".join(f'<a href="{p}.html"{on}><b>{keys[p]}</b> {labels[p]}</a>' for p in GROUPS[group] for on in [' class="on"' if p == page else ""]) + "</span>")
+        # The sidebar: every group with its pages, the current one marked; hidden pages left out
+        nav = "".join(f'<div class="group"><div class="gname">{html.escape(T["groups"][g])}</div>'
+                      + "".join(f'<a href="{p}.html"{on} title="{html.escape(re.sub("<[^>]+>", "", T["desc"][p]))}">'
+                                f'<span>{html.escape(labels[p])}</span><kbd>{keys.get(p, "")}</kbd></a>'
+                                for p in ps if p not in hidden for on in [' class="on"' if p == page else ""]) + "</div>"
+                      for g, ps in GROUPS.items())
+        columns = [{**c, "label": T["cols"].get(c["label"], c["label"])} for c in columns]
         data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")  # a "</script>" in a name can't end the script
         template = (ROOT / ("charts.html" if page == "charts" else "template.html")).read_text(encoding="utf-8")
         page_html = (template.replace("__THEME__", theme).replace("__NAV__", nav)
                      .replace("__TITLE__", f"{home} · {labels[page]}").replace("__SAVE__", save)
+                     .replace("__PAGETITLE__", html.escape(T["titles"][page])).replace("__PAGEDESC__", T["desc"][page])
                      .replace("__HOME__", home).replace("__PAGE__", page).replace("__SITE__", site)
-                     .replace("__COLS__", json.dumps(columns)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
+                     .replace("__COLS__", json.dumps(columns, ensure_ascii=False)).replace("__WEIGHTS__", weights).replace("__DATA__", data))
         (out / f"{page}.html").write_text(page_html, encoding="utf-8")
     print(f"[{save}] out/{save}/: " + ", ".join(f"{p} ({len(d['rows'] if isinstance(d, dict) else d)})" for p, (_, d) in pages.items()
-                                                 if p not in ("grid", "filters", "charts", "staff_filters", "settings")))
+                                                 if p not in ("grid", "filters", "charts", "staff_filters", "settings", "help")))
     return out
 
 
@@ -720,8 +731,9 @@ def import_save(save, config, save_file=None):
 
     toml_path = save_dir / "save.toml"
     text = toml_path.read_text(encoding="utf-8")
-    text = set_toml_key(text, "last_batch", json.dumps(sorted(written), ensure_ascii=False))
-    text = set_toml_key(text, "last_staff_batch", json.dumps([staff_name] if rows else [], ensure_ascii=False))
+    # the "last screenshots" pages are for screenshots: an import empties them (the squad and staff pages show the import)
+    text = set_toml_key(text, "last_batch", "[]")
+    text = set_toml_key(text, "last_staff_batch", "[]")
     for key in ("last_names", "last_staff_names"):
         text = set_toml_key(text, key, None)
     for key in ("released", "signed", "recalled"):  # a new squad screen: these are settled
