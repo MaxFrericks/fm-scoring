@@ -180,19 +180,20 @@ class World:
     # --- searches ---
 
     def recruit(self, w, q, convert, staff_word):
-        """Staff at other clubs, scored for every role, filtered by q: role (required), nation, job, max_wage (as FM
-        shows it), max_age, top. FM shows every staff member's attributes, so no honesty limit applies; hidden ones aren't read."""
+        """Staff at other clubs, scored for every role, filtered by q: role (required), nations (names, or 'mine'), job,
+        max_wage (as FM shows it), max_age, top. FM shows every staff member's attributes, so no honesty limit applies; hidden ones aren't read."""
         fm_name, weighted = self.fm_name, self.weighted
         roles, words = w["staff"], w["staff_words"]
         role = q["role"]
         if role not in roles:
             raise SystemExit(f"No staff role {role!r} in the weights file; roles: {', '.join(roles)}")
-        nation = self.nation_id(q["nation"]) if q.get("nation") else None
+        nations = {self.nation_id(n) for n in (q.get("nations") or ([q["nation"]] if q.get("nation") else []))}
+        club_nation = {c["uid"]: self.nation(c["nation_id"]) for c in self.clubs}
         rows = []
         for s in self.staff:
             if s.get("is_human_manager") == "true" or s["club_name"] == self.managed:
                 continue
-            if nation and s["nation_id"] != nation:
+            if nations and s["nation_id"] not in nations:
                 continue
             if q.get("job") and fm_name(s["job"]).lower() != q["job"].lower():
                 continue
@@ -206,7 +207,8 @@ class World:
             if role not in scores:
                 continue
             best = max(scores, key=scores.get)
-            rows.append({"name": s["name"], "club": s["club_name"], "nation": self.nation(s["nation_id"]), "age": int(s["age"]) if s["age"] else None,
+            rows.append({"name": s["name"], "club": s["club_name"], "nation": self.nation(s["nation_id"]), "clubNation": club_nation.get(s["club_uid"]),
+                         "age": int(s["age"]) if s["age"] else None,
                          "job": fm_name(s["job"]) if s["job"] not in ("", "unknown") else None, "wage": wage, "contract": s["contract_end"] or None,
                          **scores, "best": best, "score": scores[best], "personality": None,
                          "history": [{"date": self.date, "club": s["club_name"], "age": int(s["age"]) if s["age"] else None, **scores, "best": best, "score": scores[best], "attrs": attrs}]})

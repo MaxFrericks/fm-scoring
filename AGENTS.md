@@ -92,7 +92,8 @@ The user asks in words; the agent turns it into a search and the page shows the 
 `queries.json`, so later builds show it too). Both need a cache from `score.py import`.
 
 - **Staff** ("find me an assistant manager, Dutch, under 4K a month"): `python3 score.py recruit AM --nation mine --max-wage 4K --open`.
-  `ROLE` is a `[staff.<label>]` from the weights file; `--nation` a name (`world.py`'s landmarks or save.toml's `nations`) or `mine`;
+  `ROLE` is a `[staff.<label>]` from the weights file; `--nation` (repeatable) a name (`world.py`'s landmarks or save.toml's `nations`) or `mine`;
+  the page shows each candidate's nation and their club's nation (a German at a Dutch club knows Dutch football; languages aren't in the save);
   `--job` their job as FM names it; `--max-wage` as FM shows wages; `--max-age`; `--top` (50). Staff at the managed club are left out.
   FM shows every staff member's attributes, so this is as honest as FM's own staff search. The save holds no club-less staff.
 - **Players** ("find me a left back, 24 or under, in the Eredivisie, under 500K"): `python3 score.py scout "WB/6" --max-age 24 --league Eredivisie --max-value 500K --open`.

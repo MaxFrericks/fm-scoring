@@ -173,8 +173,8 @@ def scout_cols(w):
 
 
 def recruit_cols(roles):
-    return [{"key": "name", "label": "Name"}, {"key": "club", "label": "Club"}, {"key": "nation", "label": "Nation"},
-            {"key": "age", "label": "Age", "num": True}, {"key": "job", "label": "Job"},
+    return [{"key": "name", "label": "Name"}, {"key": "club", "label": "Club"}, {"key": "clubNation", "label": "Club nation"},
+            {"key": "nation", "label": "Nation"}, {"key": "age", "label": "Age", "num": True}, {"key": "job", "label": "Job"},
             {"key": "wage", "label": "Wage", "num": True, "fmt": "money"}, {"key": "contract", "label": "Contract"},
             *({"key": r, "label": r, "num": True, "fmt": "f1"} for r in roles)]
 
@@ -443,7 +443,9 @@ def build(save, config):
                  "rows": world.scout(w, cfg, q, convert, known)} for q in queries.get("scout", [])] if world else []
     for s in recruit + scouting:
         for r in s["rows"]:
-            r["nation"] = T["nations"].get(r["nation"], r["nation"])  # nation names in the page's language
+            for k in ("nation", "clubNation"):  # nation names in the page's language
+                if r.get(k):
+                    r[k] = T["nations"].get(r[k], r[k])
     league = world.league_rows(w, cfg, convert, known, cfg.get("known_leagues", [])) if world else []
     kpis = world.kpis(lambda v: fm_money(convert(v), config.get("currency", "£")),
                       lambda v: fm_money(convert(v, True), config.get("currency", "£"), config.get("wage_period", "week")), T["header"]) if world else []
@@ -839,7 +841,7 @@ def main():
     ip.add_argument("--file", help="the .fm file, if not save.toml's save_file")
     rp = sub.add_parser("recruit", help="search every staff member in the save for a role: the recruit page")
     rp.add_argument("role", help="a staff role from the weights file, e.g. AM")
-    rp.add_argument("--nation", help="a nation (e.g. Netherlands, or 'mine' for the club's)")
+    rp.add_argument("--nation", action="append", dest="nations", metavar="NAME", help="a nation (e.g. Netherlands, or 'mine' for the club's); repeatable")
     rp.add_argument("--job", help="their job, e.g. 'Assistant Manager'")
     rp.add_argument("--max-wage", type=money, metavar="MONEY", help="as FM shows wages, e.g. 4K")
     rp.add_argument("--max-age", type=int)
@@ -875,7 +877,7 @@ def main():
     if args.command == "import":
         import_save(save, config, args.file)
     if args.command == "recruit":
-        save_query(save, "recruit", {"role": args.role, "nation": args.nation, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top}, "role")
+        save_query(save, "recruit", {"role": args.role, "nations": args.nations, "job": args.job, "max_wage": args.max_wage, "max_age": args.max_age, "top": args.top}, "role")
     if args.command == "scout":
         save_query(save, "scout", {"pos": args.pos, "max_age": args.max_age, "max_value": args.max_value, "max_wage": args.max_wage, "leagues": args.leagues,
                                    "nations": args.nations, "min_minutes": args.min_minutes, "sort": args.sort, "top": args.top}, "pos")

@@ -107,7 +107,7 @@ STRINGS = {
                "settingsNote": "Wil je een instelling veranderen, vraag het je assistent.", "date": "Datum", "club2": "Club", "age": "Lft", "bestCol": "Beste", "vsAge": "vs lft"},
         "cols": {"Player": "Speler", "Name": "Naam", "Club": "Club", "Age": "Lft", "Wage": "Loon", "Value": "Waarde", "Left": "Links", "Best": "Beste",
                  "Score": "Score", "vs Age": "vs lft", "Rating": "Cijfer", "Mins": "Min", "League": "Competitie", "Nation": "Land", "Pos": "Pos",
-                 "Contract": "Contract", "Goals": "Goals", "Assists": "Assists", "xG": "xG", "Scouted": "Gescout", "Job": "Functie", "Personality": "Persoonlijkheid"},
+                 "Contract": "Contract", "Club nation": "Clubland", "Goals": "Goals", "Assists": "Assists", "xG": "xG", "Scouted": "Gescout", "Job": "Functie", "Personality": "Persoonlijkheid"},
         "nations": {"Netherlands": "Nederland", "Belgium": "België", "Germany": "Duitsland", "England": "Engeland", "Spain": "Spanje", "Italy": "Italië",
                     "France": "Frankrijk", "Turkey": "Turkije", "Austria": "Oostenrijk", "Switzerland": "Zwitserland", "Denmark": "Denemarken", "Sweden": "Zweden",
                     "Norway": "Noorwegen", "Poland": "Polen", "Czechia": "Tsjechië", "Croatia": "Kroatië", "Serbia": "Servië", "Greece": "Griekenland",
