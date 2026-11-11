@@ -77,7 +77,9 @@ The user says something like "update from my save", "import my save" or "refresh
 - FM shows staff words in the game's language; a staff file holds the English ones (Dutch: Ongeschikt Unsuited, Redelijk
   Reasonable, Capabel Competent, Prima Average, Goed Good, Erg goed Very Good, Uitmuntend Outstanding). The Dutch staff view's
   headers in order: Vbh Mot BPt Mgm Aut. TCo Beo Tec Jon Pos Tct Anv Vrd Fys Con SpW Ana D Ves, as the English column map below
-  (TCo = Tactiek, Tct = Tactische kennis: confirmed by the user against FM's own filter, 2026-11).
+  (TCo = Tactiek, Tct = Tactische kennis: confirmed by the user against FM's own filter, 2026-11; BPt = Spelerskwaliteiten
+  beoordelen and Beo = Spelerspotentieel beoordelen, confirmed against a staff profile). A Dutch profile uses other words for
+  the same levels than the search view: Bekwaam = Capabel (Competent), Gemiddeld = Prima (Average).
 - Running it again on the same game date overwrites that date's files. The save manages a different club than
   `managed_club`: it stops, like the crest check.
 - It reads only the managed club. Other clubs' players in the save carry their true attributes, not what the user's

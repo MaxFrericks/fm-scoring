@@ -280,9 +280,9 @@ Determination = 2
 
 [staff.PA]  # Performance Analyst
 "Analysing Data" = 4
-"Judging Player Ability" = 3
+"Tactical Knowledge" = 4
+"Judging Player Ability" = 1
 Determination = 1
-"Tactical Knowledge" = 2
 
 [staff.Physio]  # Physio
 Physiotherapy = 4
