@@ -248,21 +248,23 @@ scores it. For example:
 
 ```toml
 grid = [
-  { label = "GK", pos = "GK" },
-  { label = "D R", pos = "WB/6" },
-  { label = "D C", pos = "CB" },
-  { label = "D C left", pos = "CB", left = true },
-  { label = "D L", pos = "WB/6", left = true },
-  { label = "DM", pos = "WB/6" },
-  { label = "DM", pos = "WB/6" },
-  { label = "AM R", pos = "10" },
-  { label = "AM C", pos = "10" },
-  { label = "AM L", pos = "10" },
-  { label = "ST", pos = "9" },
+  { label = "GK", pos = "GK", fm = ["GK"] },
+  { label = "D R", pos = "WB/6", fm = ["DR", "WBR"] },
+  { label = "D C", pos = "CB", fm = ["DC"] },
+  { label = "D C left", pos = "CB", fm = ["DC"], left = true },
+  { label = "D L", pos = "WB/6", fm = ["DL", "WBL"] },
+  { label = "DM", pos = "WB/6", fm = ["DM", "MC"] },
+  { label = "DM", pos = "WB/6", fm = ["DM", "MC"] },
+  { label = "AM R", pos = "10", fm = ["AMR", "MR"] },
+  { label = "AM C", pos = "10", fm = ["AMC"] },
+  { label = "AM L", pos = "10", fm = ["AML", "ML"] },
+  { label = "ST", pos = "9", fm = ["STC"] },
 ]
 ```
 
-`left = true` means only left-footed players go there. Without a `grid`, the page has one row per position.
+`fm` lists the positions FM uses for that slot: once you've imported your save, only players FM rates there (natural
+or accomplished) go in it, so a right back doesn't end up at centre back on score alone. `left = true` means only
+left-footed players go there. Without a `grid`, the page has one row per position.
 
 ### Coming back later
 

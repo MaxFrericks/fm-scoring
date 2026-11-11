@@ -229,7 +229,7 @@ def charts(rows, squad, w, cfg):
             "managed": cfg["managed_club"], "division": cfg.get("division")}
 
 
-def grid(squad, w, cfg, intake):
+def grid(squad, w, cfg, intake, positions=None):
     """The squad by formation slot (save.toml's `grid`): senior players by position score, then youth
     (age <= youth_age) by that position's score against their age benchmark. Players are placed best first, each at
     their best position: its first free Starter, else Backup, else Third, which takes any number (players to sell or
@@ -238,8 +238,13 @@ def grid(squad, w, cfg, intake):
     part optional, plus row = n for the nth slot with that label; pinning places a player out on loan too) puts a
     player in that slot instead, whatever their foot; other players steer clear of slots a pinned player is still to
     fill. Players pinned to a column go first, into that column.
-    The latest youth intake (`intake`: names) gets its own columns, placed like the youth, except those in `grid_youth`."""
+    The latest youth intake (`intake`: names) gets its own columns, placed like the youth, except those in `grid_youth`.
+    `positions` (name -> FM position codes, natural and accomplished, from the save) keeps players to slots they can play:
+    a slot's `fm` codes in save.toml, else the weights file's `[fm_positions]` for its `pos`. A player who fits none of
+    the formation's slots, or whose positions aren't known (screenshots), is placed by score alone."""
     slots = cfg.get("grid") or [{"label": p, "pos": p} for p in ["GK", *w["outfield"]]]
+    positions = positions or {}
+    slot_codes = [set(s.get("fm") or w.get("fm_positions", {}).get(s["pos"], [])) for s in slots]
     columns = ["starter", "backup", "third"]
     pins = {n: v if isinstance(v, dict) else {"slot": v} for n, v in cfg.get("grid_pins", {}).items()}
     pin_col = {n: columns.index(v["col"]) for n, v in pins.items() if v.get("col") in columns}
@@ -277,6 +282,8 @@ def grid(squad, w, cfg, intake):
         for r in sorted(players, key=lambda r: (r["name"] not in pin_col, -value(r, r["best"]))):
             fits = (pin_fits[r["name"]] if r["name"] in pins else
                     [i for i, s in enumerate(slots) if r.get(s["pos"]) is not None and (not s.get("left") or r["left"] == "yes")])
+            if r["name"] not in pins and (known := positions.get(r["name"])):
+                fits = [i for i in fits if slot_codes[i] & known] or fits  # slots they can play, if the formation has any
             if not fits:
                 spare.append(r)
                 continue
@@ -466,7 +473,7 @@ def build(save, config):
 
     return cfg, {
         "squad": (player_cols(w, False), squad),
-        "grid": (player_cols(w, False), grid(squad, w, cfg, intake)),  # the columns are for the history overlay
+        "grid": (player_cols(w, False), grid(squad, w, cfg, intake, world.squad_positions({r["name"] for r in squad}) if world else None)),  # the columns are for the history overlay
         "filters": ([], filters(squad, w)),
         "scouting": (scout_cols(w), {"searches": scouting}),
         "elsewhere": (player_cols(w, True), [r for r in rows if r["club"] != managed]),

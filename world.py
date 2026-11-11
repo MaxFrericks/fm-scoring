@@ -169,6 +169,13 @@ class World:
     def player_stats(self, p, kind=LEAGUE_STATS):
         return self.season.get(p["uid"], {}).get(kind)
 
+    def squad_positions(self, names):
+        """Name -> the FM positions (natural and accomplished) of the managed club's players and its pre-agreed signings.
+        FM shows the user these, so the honesty rule allows them."""
+        return {p["name"]: {c for c in (p["natural_positions"] + ";" + p["accomplished_positions"]).split(";") if c}
+                for p in self.players if p["name"] in names
+                and (p["club_name"] == self.managed or self.managed in (p.get("contract_chain") or ""))}
+
     def kpis(self, money, wage, labels):
         """Headline numbers for the dashboard: the club's finances, as FM shows them."""
         f = self.finances
