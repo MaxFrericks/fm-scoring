@@ -187,7 +187,7 @@ function parseFilter(q) {
     const m = tok.match(/^([^:=<>!]+)(<=|>=|!=|<|>|=|:)(.*)$/);
     if (!m) {
       const w = tok.replace(/"/g, "").toLowerCase();
-      return r => `${r.name} ${r.club || ""} ${r.loan ? (r.loan === "trial" ? "trial" : "loan-" + r.loan) : ""}`.toLowerCase().includes(w);
+      return r => `${r.name} ${r.club || ""} ${r.loan ? (r.loan === "trial" ? "trial" : "loan-" + r.loan) : ""} ${r.joins ? t("joins") + " joins" : ""}`.toLowerCase().includes(w);
     }
     const col = findCol(m[1]), op = m[2], raw = m[3].replace(/"/g, "");
     if (!col || raw === "") { bad = true; return () => true; }

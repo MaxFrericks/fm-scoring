@@ -46,7 +46,7 @@ STRINGS = {
         "keys": {"pages": "pages", "move": "move the cell cursor", "enter": "player (or staff) history over time (or double-click a row, or click a name on the line-up; <b>esc</b> closes)",
                  "copy": "copy the cursor's player name, for FM's search (or drag-select any text)", "sort": "sort by the cursor's column (again to reverse)",
                  "filter": "filter box (<b>enter</b> / <b>esc</b> to leave it)", "clear": "clear the filter", "help": "show / hide this",
-                 "syntax": "filters: <b>col:text</b> contains · <b>col=x</b> · <b>col!=x</b> · <b>col&lt;n</b> <b>col&lt;=n</b> <b>col&gt;n</b> <b>col&gt;=n</b><br>money: <b>wage&lt;=1k</b> <b>value&lt;=500k</b> (value = top of FM's range) · plain words match name / club, or <b>loan-in</b> / <b>loan-out</b> / <b>trial</b> · e.g. <b>club:gent age&lt;=24 best!=GK vs&gt;=90 left=yes</b>"},
+                 "syntax": "filters: <b>col:text</b> contains · <b>col=x</b> · <b>col!=x</b> · <b>col&lt;n</b> <b>col&lt;=n</b> <b>col&gt;n</b> <b>col&gt;=n</b><br>money: <b>wage&lt;=1k</b> <b>value&lt;=500k</b> (value = top of FM's range) · plain words match name / club, or <b>loan-in</b> / <b>loan-out</b> / <b>trial</b> / <b>joins</b> (signings still to arrive) · e.g. <b>club:gent age&lt;=24 best!=GK vs&gt;=90 left=yes</b>"},
         "help": [
             {"title": "What to say to your assistant", "rows": [
                 ["Update from my save", "Reads your squad and staff from the save file and rebuilds every page. Save the game in FM first."],
@@ -128,7 +128,7 @@ STRINGS = {
         "keys": {"pages": "pagina's", "move": "de celcursor verplaatsen", "enter": "ontwikkeling van de speler (of staflid) door de tijd (of dubbelklik op een rij, of klik op een naam in de opstelling; <b>esc</b> sluit)",
                  "copy": "de naam onder de cursor kopiëren, voor FM's zoeker (of selecteer tekst)", "sort": "sorteren op de kolom onder de cursor (nog eens: andersom)",
                  "filter": "filtervak (<b>enter</b> / <b>esc</b> om eruit te gaan)", "clear": "filter wissen", "help": "dit tonen / verbergen",
-                 "syntax": "filters: <b>kolom:tekst</b> bevat · <b>kolom=x</b> · <b>kolom!=x</b> · <b>kolom&lt;n</b> <b>kolom&lt;=n</b> <b>kolom&gt;n</b> <b>kolom&gt;=n</b><br>geld: <b>wage&lt;=1k</b> <b>value&lt;=500k</b> (waarde = bovenkant van FM's bereik) · losse woorden zoeken in naam / club, of <b>loan-in</b> / <b>loan-out</b> / <b>trial</b> · bv. <b>club:ajax age&lt;=24 best!=GK vs&gt;=90 left=yes</b>"},
+                 "syntax": "filters: <b>kolom:tekst</b> bevat · <b>kolom=x</b> · <b>kolom!=x</b> · <b>kolom&lt;n</b> <b>kolom&lt;=n</b> <b>kolom&gt;n</b> <b>kolom&gt;=n</b><br>geld: <b>wage&lt;=1k</b> <b>value&lt;=500k</b> (waarde = bovenkant van FM's bereik) · losse woorden zoeken in naam / club, of <b>loan-in</b> / <b>loan-out</b> / <b>trial</b> / <b>komt</b> (aanwinsten die nog moeten komen) · bv. <b>club:ajax age&lt;=24 best!=GK vs&gt;=90 left=yes</b>"},
         "help": [
             {"title": "Wat je tegen je assistent kunt zeggen", "rows": [
                 ["Update van mijn save", "Leest je selectie en staf uit het savebestand en bouwt alle pagina's opnieuw. Sla eerst op in FM."],
