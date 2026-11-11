@@ -286,10 +286,9 @@ Determination = 1
 
 [staff.Physio]  # Physio
 Physiotherapy = 4
-Determination = 2
-Motivating = 2
-"People Management" = 2
-"Sports Science" = 2
+Determination = 1
+Motivating = 1
+"People Management" = 1
 
 [staff.SpSci]  # Sports Scientist
 "Sports Science" = 4

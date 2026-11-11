@@ -49,6 +49,7 @@ Checked against FM27 staff profiles (31/3/2029, an FM27 save).
 - **Coach groups.** The grid has one general Coach column. These weights split it into FM's nine training groups: each group gets its two coaching attributes at 4, plus the coach mentals and Working With Youngsters.
 - **Training only.** The coach groups leave out the Judging, Negotiating and Tactical Knowledge attributes. Those cover a coach's player reports, not their training.
 - **Left out.** Business is hidden, so it's left out of the Director of Football weights.
+- **Physio.** FM27 marks only Physiotherapy key for a physio, so it carries most of the weight (4, against 1 each for Determination, Motivating and People Management). Sports Science is the sports scientist's job and is left out.
 - **Scout adaptability.** FM27 marks Adaptability key for scouts (how fast they learn a new nation's players), so it weighs 4, like the two Judging attributes. FM marks it key for no other role, so no other role uses it.
 - **Not scored.** Hidden personality isn't on this view. FM Arena testing suggests it matters more than any attribute for a Head of Youth Development: their Professionalism shifts the intake's. Check it by hand.
 
