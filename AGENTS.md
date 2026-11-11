@@ -76,7 +76,8 @@ The user says something like "update from my save", "import my save" or "refresh
   `released`, `signed` and `recalled` (it is a new squad screen).
 - FM shows staff words in the game's language; a staff file holds the English ones (Dutch: Ongeschikt Unsuited, Redelijk
   Reasonable, Capabel Competent, Prima Average, Goed Good, Erg goed Very Good, Uitmuntend Outstanding). The Dutch staff view's
-  headers in order: Vbh Mot BPt Mgm Aut. TCo Beo Tec Jon Pos Tct Anv Vrd Fys Con SpW Ana D Ves, as the English column map below.
+  headers in order: Vbh Mot BPt Mgm Aut. TCo Beo Tec Jon Pos Tct Anv Vrd Fys Con SpW Ana D Ves, as the English column map below
+  (TCo = Tactiek, Tct = Tactische kennis: confirmed by the user against FM's own filter, 2026-11).
 - Running it again on the same game date overwrites that date's files. The save manages a different club than
   `managed_club`: it stops, like the crest check.
 - It reads only the managed club. Other clubs' players in the save carry their true attributes, not what the user's
@@ -177,8 +178,8 @@ attributes. Same steps as players (date, crest check, `score.py screenshots`), b
   (Preferred Job, expanded: `Fitness …` → `Fitness Coach`), `Personality` (expanded: `Fairly Dete…` → `Fairly Determined`),
   then attributes by full name with FM's word in full (`Compe…` → `Competent`, `Very G…` → `Very Good`). Copy the header from an existing file.
 - Column map: Det Determination · Mot Motivating · **JCA Judging Player Ability** · Mgm People Management · Auth Authority ·
-  TCo Tactical Knowledge · **JPA Judging Player Potential** · Tec Technical · Yng Working With Youngsters · Pos Possession ·
-  Tct Tactical · Att Attacking · Def Defending · Phy Physiotherapy · Fit Fitness · SpS Sports Science · Ana D Analysing Data ·
+  **TCo Tactical** (the coaching attribute) · **JPA Judging Player Potential** · Tec Technical · Yng Working With Youngsters · Pos Possession ·
+  **Tct Tactical Knowledge** · Att Attacking · Def Defending · Phy Physiotherapy · Fit Fitness · SpS Sports Science · Ana D Analysing Data ·
   Set Set Pieces · GK Goalkeeping. The text is small: crop the screenshot to read it, with whatever's installed: `sips -c H W --cropOffset Y X in --out crop.png`
   (macOS), `magick in -crop WxH+X+Y crop.png` (ImageMagick, any OS), or Pillow if it's there. Write crops to a temp folder, not the repo.
 - Set `last_staff_batch` in `save.toml` and remove any `last_staff_names` (the user's "add X to last staff": names exactly as in the staff files), run `python3 score.py --open last_staff`, commit.
