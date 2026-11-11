@@ -129,6 +129,8 @@ if (location.protocol.startsWith("http")) {
   let v0; setInterval(async () => { try { const v = await (await fetch("/_version", { cache: "no-store" })).text(); if (v0 && v !== v0) location.reload(); v0 = v; } catch (e) {} }, 3000);
 }
 const loanLabel = r => r.loan === "trial" ? t("trial") : t(r.loan === "in" ? "loanIn" : "loanOut");
+// A pre-agreed signing not here yet: "joins 2-9"
+const joinsTag = r => r.joins ? `<span class="loan in">${t("joins")} ${+r.joins.slice(8, 10)}-${+r.joins.slice(5, 7)}</span>` : "";
 const FMT = {
   f1: v => v.toFixed(1),
   f2: v => v.toFixed(2),
@@ -228,7 +230,7 @@ function render() {
     if (c.fmt === "range") return `<td class="num${at}">${r.valueLo === v ? FMT.money(v) : FMT.money(r.valueLo) + "–" + FMT.money(v)}</td>`;
     if (c.fmt === "yesno") return `<td class="${v === "yes" ? "t4" : "dim"}${at}">${v}</td>`;
     if (c.fmt) return `<td class="num ${tier(v, RANGE[c.fmt])}${at}">${FMT[c.fmt](v)}</td>`;
-    if (c.key === "name") return `<td class="name${at}">${esc(v)}${r.loan ? `<span class="loan ${r.loan}">${loanLabel(r)}</span>` : ""}</td>`;
+    if (c.key === "name") return `<td class="name${at}">${esc(v)}${r.loan ? `<span class="loan ${r.loan}">${loanLabel(r)}</span>` : ""}${joinsTag(r)}</td>`;
     return `<td class="${c.num ? "num" : "text"}${at}">${esc(v)}</td>`;
   }).join("") + "</tr>").join("");
   document.querySelector("td.cur")?.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -330,7 +332,7 @@ function showDetail(r) {
     return v == null ? `<td class="num dim">–</td>` :
       `<td class="num ${tier(v, RANGE.attr)}">${v}${p == null || p === v ? "" : `<span class="chg ${v > p ? "t4" : "t0"}">${v > p ? "+" : "−"}${Math.abs(v - p)}</span>`}</td>`;
   }).join("") + "</tr>").join("");
-  const subtitle = [r.club, r.age != null && r.age + "y", ...("job" in r ? [r.job, r.personality] : [last.leftFoot && `${t("leftFoot")} ${last.leftFoot}`, r.loan && loanLabel(r)])].filter(Boolean);
+  const subtitle = [r.club, r.age != null && r.age + "y", ...("job" in r ? [r.job, r.personality] : [last.leftFoot && `${t("leftFoot")} ${last.leftFoot}`, r.loan && loanLabel(r), r.joins && `${t("joins")} ${r.joins}`])].filter(Boolean);
   document.getElementById("detailbody").innerHTML = `
     <div class="ttitle">${esc(r.name)} <span class="sub">· ${subtitle.map(esc).join(" · ")}</span></div>
     ${H.length === 1 ? `<div class="sub">${t("oneObs").replace("{date}", last.date)}</div>` : ""}
@@ -373,7 +375,7 @@ function renderGrid() {
     (youth ? `<span class="v ${tier(p.v, RANGE.pct)}">${FMT.pct(p.v)}</span><span class="age">${FMT.f1(p.score)}</span>` :
       `<span class="v ${tier(p.score, RANGE.f1)}">${FMT.f1(p.score)}</span>`) +
     (p.pct != null ? `<span class="v ${tier(p.pct, RANGE.pct)}">${FMT.pct(p.pct)}</span>` : "") +
-    (youth || p.pct != null ? `<span class="age">${p.age}y</span>` : "") + (youth && p.left ? `<span class="foot" title="${t("leftTitle")}">L</span>` : "") + (p.loan ? `<span class="loan ${p.loan}">${loanLabel(p)}</span>` : "") + "</div>";
+    (youth || p.pct != null ? `<span class="age">${p.age}y</span>` : "") + (youth && p.left ? `<span class="foot" title="${t("leftTitle")}">L</span>` : "") + (p.loan ? `<span class="loan ${p.loan}">${loanLabel(p)}</span>` : "") + joinsTag(p) + "</div>";
   const cell = (ps, youth, ri, ci) => {
     const at = ri === cur.r && ci === cur.c;
     return `<td class="${ci === n || ci === 2 * n ? "split" : ""}${at && !ps.length ? " cur" : ""}" data-r="${ri}" data-c="${ci}">` +

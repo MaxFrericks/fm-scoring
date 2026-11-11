@@ -41,7 +41,7 @@ GROUPS = {"squad": ["squad", "grid", "filters"], "scouting": ["scouting", "chart
 PAGES = [p for ps in GROUPS.values() for p in ps]
 KEYS = "1234567890-="  # the first twelve pages get a key
 SCREENSHOT_PAGES = ("elsewhere", "last", "last_staff")  # hidden from the sidebar while empty (a save-file user never sees them)
-META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division"}  # every other column is an attribute
+META = {"Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division", "Joins"}  # every other column is an attribute
 STAFF_META = {"Name", "Club", "Age", "Job", "Personality"}
 LEFT_FOOTED = {"Fairly Strong", "Strong", "Very Strong"}
 PARTIAL_SQUAD = re.compile(r"-(u\d+s?|reserves)$")  # source of a youth/reserve squad screen: not the whole club
@@ -107,6 +107,8 @@ def load_players(obs_dir, aliases=None):
             snap["value"] = (money(lo), money(hi or lo))
         if "Loan" in row:  # squad screens only: "in" (blue name), "out" (red name), "trial" (yellow name) or blank
             snap["loan"] = row["Loan"] or None
+        if "Joins" in row:  # save-file imports: the date a pre-agreed signing joins, blank once they're here
+            snap["joins"] = row["Joins"] or None
         if row.get("Rating"):  # season minutes and average rating, from search screens that show them
             snap.update(minutes=int(row["Minutes"]), rating=float(row["Rating"]), division=row.get("Division"))
         snap["attrs"].update({k: int(v) for k, v in row.items() if k not in META and v})  # blank = unreadable
@@ -117,7 +119,7 @@ def player_row(name, p, w):
     """A player's latest state, plus their history: one entry per observation date."""
     positions = {"GK": w["gk"]} if p["keeper"] else w["outfield"]
     ages = sorted(int(a) for a in w["age_benchmark"])
-    known = {"leftFoot": None, "wage": None, "value": (None, None), "loan": None}
+    known = {"leftFoot": None, "wage": None, "value": (None, None), "loan": None, "joins": None}
     history = []
     for date, snap, attrs in timeline(p["dates"]):
         known.update({k: v for k, v in snap.items() if k in known})
@@ -135,7 +137,7 @@ def player_row(name, p, w):
         "name": name,
         **{k: v for k, v in latest.items() if k not in ("date", "leftFoot", "attrs")},  # rating: latest observation only
         "left": None if known["leftFoot"] is None else "yes" if known["leftFoot"] in LEFT_FOOTED else "no",
-        "loan": known["loan"], "wage": known["wage"], "valueLo": known["value"][0], "value": known["value"][1],  # value sorts on the top of FM's range
+        "loan": known["loan"], "joins": known["joins"], "wage": known["wage"], "valueLo": known["value"][0], "value": known["value"][1],  # value sorts on the top of FM's range
         "history": history,
     }
 
@@ -289,7 +291,7 @@ def grid(squad, w, cfg, intake):
             depths = (pin_col[r["name"]],) if r["name"] in pin_col else (0, 1)
             free = [(d, *pref(i), i) for d in depths if d < 2 for i in ok if not cols[d][i]]
             d, i = (min(free)[0], min(free)[-1]) if free else (2, min(ok, key=lambda i: (len(cols[2][i]), *pref(i))))
-            cols[d][i].append({"name": r["name"], "age": r["age"], "loan": r["loan"], "v": value(r, pos), "score": r[pos], "left": r["left"] == "yes",
+            cols[d][i].append({"name": r["name"], "age": r["age"], "loan": r["loan"], "joins": r.get("joins"), "v": value(r, pos), "score": r[pos], "left": r["left"] == "yes",
                                "pct": r[pos] * r["vsAge"] / r["score"] if pct and r["age"] <= GRID_PCT_AGE else None})
         return cols, spare
 
@@ -714,29 +716,41 @@ def import_save(save, config, save_file=None):
                                 "rating": float(r["average_rating"]) if r["average_rating"] else None}
               for r in stats if r["kind"] == SEASON_STATS}
 
+    # Pre-agreed signings still to arrive: players elsewhere whose contract chain has a later contract with the managed club.
+    # They're in the squad files with the date they join (Joins), and a loan when that contract has no terms of its own.
+    incoming = []
+    with open(save_dir / "cache" / "players.csv", newline="", encoding="utf-8") as f:
+        for p in csv.DictReader(f):
+            if p["club_name"] == managed or not p.get("contract_chain"):
+                continue
+            for c in json.loads(p["contract_chain"]):
+                if c.get("club_name") == managed and (c.get("start") or "") > date:
+                    incoming.append({**p, "club_name": managed, "on_loan": "false", "contract_kind": "", "contract_wage": c.get("wage") or "",
+                                     "_joins": c["start"], "_loan": not c.get("has_terms")})
+                    break
     attr_keys = sorted(k[11:] for k in players[0] if k.startswith("attributes_") and k[11:] not in HIDDEN_ATTRS) if players else []
     slug = re.sub(r"[^a-z0-9]+", "-", managed.lower()).strip("-")
     written = {}
     for view, skip in (("outfield", GK_ATTRS), ("gk", OUTFIELD_ATTRS)):
         keys = [k for k in attr_keys if k not in skip]
         rows = []
-        for p in sorted(players, key=lambda p: p["name"]):
+        for p in sorted(players + incoming, key=lambda p: p["name"]):
             if ("GK" in p["natural_positions"].split(";")) != (view == "gk"):
                 continue
             s = season.get(p["uid"])
             on_loan = p["club_name"] == managed and p["on_loan"] == "true"
-            loan = "in" if on_loan else "out" if p["club_name"] != managed else "trial" if "trial" in p["contract_kind"] else ""
+            loan = "in" if on_loan or p.get("_loan") else "out" if p["club_name"] != managed else "trial" if "trial" in p["contract_kind"] else ""
             foot = next(word for low, word in FOOT_WORDS if int(p["left_foot"]) >= low)
             rows.append([p["name"], managed, p["age"], foot,
                          fm_money(convert(float(p["contract_wage"]), True), currency, period) if p["contract_wage"] else "",
                          fm_money(convert(float(p["transfer_value"])), currency) if p["transfer_value_state"] == "ok" and p["transfer_value"] else "",
                          loan, s["minutes"] if s else "", f"{s['rating']:.2f}" if s and s["rated"] and s["rating"] is not None else "", division,
-                         *(p[f"attributes_{k}"] for k in keys)])
+                         p.get("_joins", ""), *(p.get(f"attributes_{k}", "") for k in keys)])
         if rows:
             name = f"{date}_{slug}_{view}.csv"
             with open(save_dir / "obs" / name, "w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(["Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division", *(fm_name(k) for k in keys)])
+                w.writerow(["Name", "Club", "Age", "Left Foot", "Wage", "Transfer Value", "Loan", "Minutes", "Rating", "Division", "Joins", *(fm_name(k) for k in keys)])
                 w.writerows(rows)
             written[name] = len(rows)
 

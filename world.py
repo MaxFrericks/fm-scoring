@@ -15,7 +15,7 @@ from pathlib import Path
 # The fmsave columns the cache keeps (players: what FM shows plus the attributes; no ability, personality or raw values)
 PLAYER_COLUMNS = ("uid,unique_id,name,age,nation_id,second_nation_ids,club_uid,club_name,team_id,natural_positions,"
                   "accomplished_positions,left_foot,right_foot,height_cm,transfer_value,transfer_value_state,on_loan,"
-                  "loan_parent_club_name,contract_wage,contract_end,contract_squad_status,contract_kind")
+                  "loan_parent_club_name,contract_wage,contract_end,contract_squad_status,contract_kind,contract_chain")
 STAT_COLUMNS = "player_uid,kind,team_id,minutes,starts,substitute_appearances,rated_appearances,average_rating,goals,assists,expected_goals"
 FIXTURE_COLUMNS = "competition_id,season_start_year,home_team_id,away_team_id"
 ATTRIBUTES = [  # fmsave's attribute keys, minus the hidden ones FM never shows (consistency, dirtiness, important matches, injury proneness, versatility)

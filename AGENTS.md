@@ -74,6 +74,9 @@ The user says something like "update from my save", "import my save" or "refresh
   `Minutes` and `Rating` are the season's competitive matches. It leaves `last_batch`, `last_staff_batch` and the
   `last_*names` alone (the "last screenshots" pages are for screenshots, and `serve` imports on every save), and empties
   `released`, `signed` and `recalled` (it is a new squad screen).
+- **Pre-agreed signings:** players at other clubs (or free) whose contract chain holds a later contract with the managed club
+  (`contract_chain` in the cache) go into the squad files too, with a `Joins` date and `Loan = in` when that contract has no terms
+  (a loan). The pages tag them "joins 2-9" until they arrive; FM shows the user their attributes, so the honesty rule allows it.
 - FM shows staff words in the game's language; a staff file holds the English ones (Dutch: Ongeschikt Unsuited, Redelijk
   Reasonable, Capabel Competent, Prima Average, Goed Good, Erg goed Very Good, Uitmuntend Outstanding). The Dutch staff view's
   headers in order: Vbh Mot BPt Mgm Aut. TCo Beo Tec Jon Pos Tct Anv Vrd Fys Con SpW Ana D Ves, as the English column map below
